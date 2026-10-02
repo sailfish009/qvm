@@ -1,0 +1,17 @@
+{
+  "schema": "qvm-standard-reference-v1",
+  "cases": 100,
+  "rng_seed": 20001,
+  "source_sha256": {
+    "testq_v0.0011/attention.py": "86e4c9ee0184e2b0862bd498264c1fcdb33349476e87f48025f1e2c398816eb3",
+    "testq_v0.0012/attention.py": "24e8b4fda46a15e840363b5181547ccbd6910c31536229943647b28acb66eb54",
+    "testq_v0.0013/attention.py": "01cbb4529dcea7418493261cd370f884a9e93632c657863cb99a112f68f3c132"
+  },
+  "historical_parameters": {
+    "bures_eps": 1e-08,
+    "renyi_density_eps": 0.0001,
+    "renyi_alpha": 0.9
+  },
+  "npz_sha256": "879ee9884eeb69f4ba8b1eae08a02b230b33a64b1fc0305fa4aadc32b647f6cf",
+  "purpose": "portable frozen outputs generated once from preserved research sources; the public reproduction script does not require those repositories"
+}
