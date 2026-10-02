@@ -1,87 +1,84 @@
-# qvm_v0.0002 results
+# qvm_v0.0003 reliability results
 
-## Decision
+## Scope
 
-The replaceable-semantics VM is implemented and passes its infrastructure acceptance tests. One serialized
-program can now run under standard or counterfactual measurement, collapse and evolution assumptions without
-changing its program hash.
+Version0.0.3 is a reliability correction to the counterfactual-semantics VM. It adds no new semantic axis and makes
+no physical-law or quantum-advantage claim. Program, SemanticProfile and Backend remain independent. The goal is
+to distinguish law changes from numerical repair, invalid conditional branches and backend dispatch behavior.
 
-This is not evidence that a counterfactual profile describes nature. It is evidence that assumptions are no
-longer inseparable from the executable program in this environment.
+## Independently reported regressions
 
-## Implemented semantic axes
+All reported cases were first reproduced against0.0.2 and then frozen as0.0.3 tests.
 
-| Axis | Standard | Alternatives |
+| case | 0.0.2 behavior | 0.0.3 behavior |
 |---|---|---|
-| Measurement | Born exponent2 | Escort exponent alpha>0 |
-| Selective update | Lüders strength1 | Partial/no collapse in[0,1] |
-| Evolution | Linear, beta1 | Normalized spectral power beta>0 |
+| `diag(1,0)`, spectral beta=.1 | `diag(.9617135,.0382865)` | exactly `diag(1,0)` |
+| positive branch probability `5e-15` | branch trace `.5` | branch trace `1` |
+| zero-probability direct branch | numeric placeholder accessible | raises `UndefinedBranch` |
+| equal probabilities, alpha=10000 | `[NaN,NaN]` | exactly `[.5,.5]` |
+| NaN/Inf semantic parameters | accepted until invalid output | rejected before execution |
+| spoofed `partial_swap*` program name | PennyLane ran a different tape | `UnsupportedLowering` |
+| sealed instruction attrs/return | mutable | public mutations rejected |
 
-Every execution audit contains the program hash, semantic manifest/hash, changed assumptions, invariants,
-known nonstandard properties, backend, instruction trace and input hashes.
+Positive powers now preserve null support. Singular logarithms and negative powers use explicit strict-domain errors
+rather than an eigenvalue floor. Roundoff projections are governed by a separate `NumericalPolicy` and included in
+the execution audit when they actually occur.
 
-## Standard-profile lineage
+## Backend and program integrity
 
-One hundred random cases were compared with preserved research source files.
+PennyLane lowering no longer dispatches on `program.name`. It requires an exact name-independent structural hash
+of a supported opcode sequence, attributes and return value. Renaming an otherwise identical canonical program is
+accepted; changing its returned intermediate value is rejected. Nonstandard semantic profiles remain rejected.
 
-| Equation | Maximum absolute error |
+Sealing converts the instruction tape to immutable tuples and recursively freezes instruction attributes. Program
+name and output are read-only properties. Mutating a detached `record()` cannot alter the program. v0.0002 JSON
+can be read, after which it is resealed and serialized under the v0.0003 schema with a new identity hash.
+
+## Declared versus used assumptions
+
+Audit records now include `used_assumptions`, `unused_changed_assumptions` and `numerical_interventions`. For an
+escort-alpha4 profile executing a Bures-only program, `born_exponent` is correctly reported as declared but unused.
+The same profile executing POVM measurement reports `measurement_exponent` as used.
+
+The spectral application scope is explicitly `per_evolution_instruction`; trace entries number each semantic
+evolution event. No instruction-decomposition invariance is silently assumed.
+
+## Property and counterexample report
+
+The deterministic property explorer evaluated28 profile/property cells. All enforced probability-simplex,
+density-state and tensor-associativity checks passed. Four expected exploratory counterexamples were retained:
+
+| profile | property | maximum difference |
+|---|---|---:|
+| escort alpha4 | outcome refinement/recombination | .1666667 |
+| partial collapse kappa=.5 | selective repeatability | .2 |
+| spectral beta2 | one versus two identity-evolution events | .0549325 |
+| spectral beta2 | convex-mixture affinity | .1274808 |
+
+These are characteristics of the declared alternatives, not discarded samples or evidence that the alternatives
+are laws of nature.
+
+## Regression and source reproduction
+
+Twenty-two tests pass, covering the original API, trainable semantic gradients, exact endpoints, branch domains,
+extreme exponents, deep sealing, structural lowering, used-assumption audit and counterexample preservation.
+PyTorch is not imported.
+
+The portable100-case standard reference remains reproduced under the declared standard profile:
+
+| equation | maximum error |
 |---|---:|
 | product-RY fidelity |1.46e-16|
 | historical mixed Bures |1.64e-14|
 | sandwiched Rényi alpha=.9 |1.60e-13|
 | partial-SWAP density update |2.22e-16|
 
-These are conditional reproductions under the declared standard profile.
-
-## Counterfactual sweep
-
-For1,000 random qubit states and binary POVMs, mean total-variation distance from standard Born output was:
-
-| Measurement exponent | Mean TV | Maximum TV |
-|---:|---:|---:|
-|1.0|.0333|.1497|
-|1.5|.0162|.0640|
-|2.0|0|0|
-|3.0|.0296|.0897|
-|4.0|.0555|.1501|
-
-Every output remained normalized to numerical precision. Alpha2 exactly reproduced the standard profile.
-
-Partial-collapse sweeps preserved the same outcome probabilities while continuously changing branch states from
-no update at kappa0 to Lüders update at kappa1. Spectral-power sweeps preserved PSD and trace while changing
-purity; beta1 exactly reproduced linear standard evolution.
-
-These observations only establish that the semantic axes are active and isolated. They are not learning results
-or physical anomalies.
-
-## Tests
-
-Eleven tests pass:
-
-- program serialization, sealing and semantic independence;
-- standard/escort endpoint identity and normalization;
-- trainable measurement-exponent gradient versus finite difference;
-- partial-collapse endpoint and interpolation identities;
-- spectral-power standard endpoint and purity change;
-- preserved standard equations and PennyLane partial-SWAP;
-- refusal to lower counterfactual semantics to standard PennyLane circuits;
-- explicit assumption manifests and hashes;
-- state/POVM validation;
-- semantic-role classification;
-- absence of PyTorch.
+These are implementation-consistency results conditional on the profile. They do not validate the underlying
+physical assumptions.
 
 ## Coverage boundary
 
-Implemented alternatives do not cover every possible failure of standard assumptions. This release holds complex
-density states, tensor products and convex input mixtures fixed. It does not implement alternative scalar fields,
-composition laws, signed states, hidden-variable models, nonlocal alternatives or unknown unknowns.
-
-Therefore the VM supports conditional falsification and comparison; it cannot certify that all possible semantic
-alternatives were considered.
-
-## Publication status
-
-The directory contains packaging metadata, Apache-2.0 text attributed to `sailfish009`, README, assumption
-documentation, contribution rules, tests, portable frozen references, examples and reproducibility artifacts. It
-has not been pushed to GitHub. A clean file-upload bundle is provided; the repository name/description and hosted
-CI result remain user-side publication steps.
+Implemented alternatives remain escort measurement, partial collapse and post-evolution spectral power. Held
+fixed are complex density states, tensor composition and convex input mixtures. Alternative scalar fields, state
+spaces, composition rules, signed states, hidden variables, physical hardware behavior and unknown alternatives
+remain uncovered.

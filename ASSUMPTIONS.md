@@ -1,67 +1,77 @@
-# Assumption model
+# Assumption and numerical-policy model
 
 ## Principle
 
-A backend answers a program under a semantic profile. It does not define the profile. Re-running one profile on
-multiple software backends tests implementations, not the profile's truth.
+A backend answers an immutable program under a semantic profile. It does not define that profile. Agreement across
+software backends tests implementation consistency under shared assumptions, not the truth of those assumptions.
 
 ## Standard profile
 
-The bundled standard profile assumes:
+The standard profile declares complex positive-semidefinite trace-one states, tensor-product composition, linear
+unitary/CPTP evolution, Born probabilities, Lüders selective update and convex input mixtures. These are explicit
+configuration, not unquestioned VM laws.
 
-1. States are positive semidefinite complex matrices with trace one.
-2. Composite states use the Kronecker tensor product.
-3. Closed evolution is linear and unitary.
-4. Declared channels are linear CPTP maps.
-5. POVM probabilities are `Tr(rho E_i)`.
-6. Selective projective measurement uses Lüders update.
-7. Input mixtures are convex and linear.
+## Counterfactual axes
 
-These assumptions are explicit configuration, not QVM axioms.
+- Escort measurement: `P_alpha(i) = p_i^(alpha/2) / sum_j p_j^(alpha/2)`, alpha>0.
+- Partial selective update: `(1-kappa)rho + kappa rho_i`, kappa in[0,1].
+- Spectral-power evolution: `rho^beta / Tr(rho^beta)`, beta>0, after each declared evolution instruction.
 
-## Counterfactual profiles
+Alpha2, kappa1 and beta1 are the standard endpoints. Nonstandard profiles are controlled mathematical models,
+not proposed laws of nature.
 
-### Escort measurement
+## Numerical policy is separate
 
-Given a valid POVM and standard raw values `p_i=Tr(rho E_i)`, the profile returns
+`NumericalPolicy` is recorded independently from physical semantics.
 
-`P_alpha(i)=p_i^(alpha/2)/sum_j p_j^(alpha/2)`.
+- Positive matrix powers preserve exact zero eigenvalues; no positive mass is injected into null support.
+- Negative eigenvalues within the declared float64 roundoff tolerance are projected to zero and every occurrence
+  is recorded as a numerical intervention.
+- Matrix logarithms and negative powers on singular support raise `NumericalDomainError`; v0.0003 does not hide
+  those domains behind an eigenvalue floor.
+- Measurement powers use max-rescaled normalization, preventing equal nonzero weights from jointly underflowing
+  at large finite exponents.
+- Tiny negative probability residue may be projected to zero only within the declared tolerance and is audited.
+- NaN and infinite semantic parameters or ordinary inputs are rejected.
 
-It preserves nonnegativity and normalization for alpha>0. Except at alpha=2 it does not assert the standard Born
-rule or its usual noncontextual interpretation. The implementation does not claim consistency with every
-possible composite-system or no-signalling experiment.
+A deliberately regularized matrix function must be represented by an explicit program operation or future named
+policy. It must not masquerade as the exact semantic law.
 
-### Partial selective update
+## Conditional branches
 
-After outcome i, it returns `(1-kappa)rho+kappa rho_i^Luders`. This remains a valid density matrix for kappa in
-[0,1], but for kappa<1 repeat measurement need not have the standard repeatability property. Outcome
-probabilities and update law are deliberately separable assumptions.
+Every strictly positive Born-probability branch is divided by its actual probability, however small, and therefore
+has trace one. A zero-probability conditional branch is mathematically undefined. Full measurement results expose
+a `defined` mask; direct access raises `UndefinedBranch`. A zero matrix may occupy the unused array slot but is
+never presented as a valid conditional state.
 
-### Spectral-power evolution
+## Evolution events and program decomposition
 
-After a declared evolution it applies `rho^beta/Tr(rho^beta)`. It preserves Hermiticity, positivity and trace,
-but beta!=1 is nonlinear in rho and generally violates convex-mixture preservation. It is a controlled
-counterfactual map, not a proposed fundamental equation.
+The implemented application scope is `per_evolution_instruction`. Each evolution opcode is a separate semantic
+event and is numbered in execution traces. Consequently a beta!=1 profile can distinguish one identity evolution
+from two identity evolutions. This is an explicit property of the profile, not a compiler-invariant assumption.
+Alternative event grouping is not implemented in this release.
 
-## Invariants versus assumptions
+## Declared versus used assumptions
 
-This release keeps PSD and trace-one state validity for every profile. Therefore it cannot test whether positivity
-or density matrices themselves are wrong. A future signed-state profile must declare different validators rather
-than bypassing current validation silently.
+Audit results distinguish:
 
-## Coverage rule
+- the complete declared semantic manifest;
+- assumptions actually invoked by executed opcodes;
+- changed assumptions unused by the program;
+- numerical interventions actually applied.
 
-Every experiment must publish three lists:
+For example, an escort exponent is declared but unused by a Bures-only host-math program.
 
-- implemented alternatives;
-- assumptions held fixed;
-- alternatives not covered.
+## Properties and counterexamples
 
-A negative result excludes only the tested profiles on the tested tasks. A positive learning result establishes
-utility of an operation, not physical truth. A physical claim requires independent observations and controls.
+`qvm.properties` checks enforced invariants separately from exploratory properties. Counterexamples are retained as
+artifacts rather than silently rejected. The bundled suite covers outcome refinement, repeated measurement,
+convex-mixture affinity, identity-evolution decomposition and tensor associativity. A counterexample characterizes
+the selected profile; it does not by itself prove or disprove a physical theory.
 
-## Numerical policy
+## Coverage boundary
 
-Matrix powers floor eigenvalues below1e-14. Measurement probabilities with tiny negative floating-point residue
-are clamped to zero before normalization. Both policies are in every profile manifest. They are numerical
-stabilizers, not alternative physical assumptions, and must be included in reproducibility records.
+Held fixed in v0.0003 are complex density states, tensor composition and convex input mixtures. Alternative scalar
+fields, state spaces, composition laws, signed states, hidden-variable models, hardware behavior and unknown
+alternatives are not covered. Positive learning utility would not establish physical truth, and a negative result
+would exclude only the tested profiles and tasks.

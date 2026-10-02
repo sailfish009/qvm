@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "qvm-counterfactual"
-version = "0.0.2"
-description = "Counterfactual semantic execution for quantum learning equations"
+version = "0.0.3"
+description = "Auditable counterfactual semantic execution for quantum learning equations"
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "Apache-2.0"}

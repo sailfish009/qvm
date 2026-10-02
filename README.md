@@ -1,6 +1,6 @@
-# qvm_v0.0002
+# qvm_v0.0003
 
-**A small counterfactual-semantics virtual machine for quantum learning equations.**
+**An auditable counterfactual-semantics virtual machine for quantum learning equations.**
 
 Most quantum simulators ask: *what does a chosen quantum model predict?* This project asks an earlier question:
 *which assumptions produced that prediction, and what changes when one assumption is replaced?*
@@ -21,7 +21,7 @@ inside the VM and is not treated as empirically proven by simulator agreement.
 ## Why
 
 Agreement between NumPy and PennyLane can show implementation consistency while both implementations share the
-same physical assumptions. qvm_v0.0002 records and replaces those assumptions so that conclusions remain
+same physical assumptions. qvm_v0.0003 records and replaces those assumptions so that conclusions remain
 conditional on a visible coverage set.
 
 Implemented assumption axes:
@@ -35,6 +35,11 @@ Implemented assumption axes:
 Held standard in this release: complex density states, tensor-product composition, and convex input mixtures.
 Alternative scalar fields, alternative composition laws, signed states and unknown alternatives are explicitly
 **not covered**.
+
+Version0.0.3 is a reliability correction rather than a new semantic family. It separates numerical policy from
+semantic law, preserves exact zero support for positive powers, marks zero-probability branches undefined, uses
+stable finite measurement normalization, deeply seals programs, structurally validates PennyLane lowerings and
+records assumptions actually used during execution.
 
 ## Install
 
@@ -55,7 +60,7 @@ print(qvm.__version__)
 For a frozen installation, install the built wheel instead:
 
 ```bash
-python -m pip install dist/qvm_counterfactual-0.0.2-py3-none-any.whl
+python -m pip install dist/qvm_counterfactual-0.0.3-py3-none-any.whl
 ```
 
 A wheel is normally attached to a GitHub Release rather than committed with the source tree.
@@ -85,6 +90,9 @@ alternative = vm.run(program, inputs, escort_profile(1.4), audit=True)
 assert standard.program_sha256 == alternative.program_sha256
 print(standard.value, alternative.value)
 print(alternative.semantics["changed_assumptions"])
+print(alternative.used_assumptions)
+print(alternative.unused_changed_assumptions)
+print(alternative.numerical_interventions)
 ```
 
 The program hash is unchanged; only the semantic profile changes.
@@ -128,6 +136,9 @@ rho_i(kappa) = (1-kappa) rho + kappa rho_i
 partial_collapse_profile(kappa=0.5)
 ```
 
+Strictly positive Born-probability branches are normalized by their actual probability. Full selective results
+expose a `defined` mask; requesting a zero-probability conditional state raises `UndefinedBranch`.
+
 ### Spectral-power evolution
 
 After an otherwise standard evolution,
@@ -143,12 +154,16 @@ spectral_power_profile(beta=1.7)
 ```
 
 Profiles can be combined with `counterfactual_profile(...)`. Every profile produces a canonical assumption
-manifest, a hash, enforced invariants, and known departures from the standard profile.
+manifest, a hash, enforced invariants, known departures and an explicit `NumericalPolicy`. Positive matrix powers
+preserve exact zero support; singular logarithms and negative powers raise `NumericalDomainError` rather than
+silently flooring eigenvalues.
 
 ## Programs and semantic roles
 
 Instructions are tagged as `data`, `state`, `composition`, `evolution`, `measurement`, `host_math`, or `output`.
-Programs are sealed after construction and serialize to canonical JSON with SHA-256 identity.
+Programs are deeply sealed after construction: instruction collections, attributes, names and return values cannot
+be changed through the public API. They serialize to canonical JSON with both identity and name-independent
+structural SHA-256 hashes.
 
 Included programs:
 
@@ -166,19 +181,24 @@ Host geometry such as Bures or matrix logarithms is not mislabeled as a physical
 - `numpy_semantic`: differentiable dense execution under any implemented profile.
 - `pennylane_standard`: independent circuit execution under the standard profile only.
 
-A nonstandard profile sent to `pennylane_standard` raises `UnsupportedLowering`. The VM never silently converts a
-counterfactual semantic law into a standard PennyLane circuit.
+A nonstandard profile sent to `pennylane_standard` raises `UnsupportedLowering`. Standard lowering additionally
+requires an exact supported instruction tape, attributes and return value; program names are not dispatch keys.
+The VM never silently converts a counterfactual law or altered tape into a standard PennyLane circuit.
 
 ## Reproduce
 
 ```bash
 python -m unittest discover -s tests -v
+python examples/reproduce_reliability_cases.py
 python examples/reproduce_standard_semantics.py
 python examples/assumption_sweep.py
+python examples/discover_counterexamples.py
 ```
 
 The standard profile reproduces preserved product-fidelity, Bures, Rényi and partial-SWAP equations. The sweep
-shows that one unchanged program produces distinct normalized outputs under declared rival assumptions.
+shows that one unchanged program produces distinct normalized outputs under declared rival assumptions. The
+property explorer stores expected refinement, repeatability, mixture and event-decomposition counterexamples
+instead of filtering them out.
 
 See `RESULTS.md`, `ASSUMPTIONS.md`, and the JSON artifacts under `artifacts/`.
 
