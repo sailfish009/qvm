@@ -5,6 +5,18 @@
 A backend answers an immutable program under a semantic profile. It does not define that profile. Agreement across
 software backends tests implementation consistency under shared assumptions, not the truth of those assumptions.
 
+## Typed overlap extension (0.0.4)
+
+The new overlap dialect supports standard complex Hilbert algebra without an attention/QKV architecture. A ket is
+another representation of a pure density state; amplitudes, Gram matrices, coefficients and operators are distinct
+mathematical values. They must not all be validated as trace-one density matrices. Types do not introduce a new
+physical law. The overlap backends reject counterfactual profiles rather than ignoring changed assumptions.
+
+`normalize` rejects the zero vector and uses max-rescaled normalization without an epsilon fallback. `ridge_project`
+requires and audits a positive ridge; its output is a regularized span smoother, not an exact projector or gate.
+Raw overlap phases depend on preparation conventions; cyclic products and fidelities have different invariances.
+Arbitrary coherent-sum norms are not physical success probabilities. See `OVERLAP_API.md`.
+
 ## Standard profile
 
 The standard profile declares complex positive-semidefinite trace-one states, tensor-product composition, linear
@@ -27,7 +39,7 @@ not proposed laws of nature.
 - Positive matrix powers preserve exact zero eigenvalues; no positive mass is injected into null support.
 - Negative eigenvalues within the declared float64 roundoff tolerance are projected to zero and every occurrence
   is recorded as a numerical intervention.
-- Matrix logarithms and negative powers on singular support raise `NumericalDomainError`; v0.0003 does not hide
+- Matrix logarithms and negative powers on singular support raise `NumericalDomainError`; this implementation does not hide
   those domains behind an eigenvalue floor.
 - Measurement powers use max-rescaled normalization, preventing equal nonzero weights from jointly underflowing
   at large finite exponents.
@@ -71,7 +83,7 @@ the selected profile; it does not by itself prove or disprove a physical theory.
 
 ## Coverage boundary
 
-Held fixed in v0.0003 are complex density states, tensor composition and convex input mixtures. Alternative scalar
+Held fixed in the legacy semantic profiles are complex density states, tensor composition and convex input mixtures. Alternative scalar
 fields, state spaces, composition laws, signed states, hidden-variable models, hardware behavior and unknown
 alternatives are not covered. Positive learning utility would not establish physical truth, and a negative result
 would exclude only the tested profiles and tasks.

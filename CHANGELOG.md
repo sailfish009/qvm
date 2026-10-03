@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.0.4
+
+Typed overlap-learning infrastructure, with no attention/QKV requirement:
+
+- added explicit result types independent of instruction roles;
+- fixed pure-state return validation, including legacy product-RY states;
+- added complex/batched overlap, Gram, cyclic products, superposition, normalization, density conversion,
+  pure-state unitary/readout, and explicit ridge span smoothing;
+- added a validated composable standard-complex dialect, not program-name dispatch;
+- added differentiable NumPy and actual PennyLane-QNode state encoders, with shared host algebra explicitly labeled;
+- added a no-attention overlap-metric training example and phase/Gram geometry diagnostics;
+- strengthened internal sealing and finite JSON attribute contracts;
+- imported v2/v3 serialized programs into schema v4; legacy formulas and default executor retained;
+- retained previous reliability regressions and added typed/batch/gradient/phase/no-PyTorch tests;
+- documented numerical domains, physical interpretation limits, backend scope, and migration;
+- did not add a new counterfactual law or claim superiority over attention.
+
 ## 0.0.3
 
 Reliability correction with no new counterfactual semantic axis:

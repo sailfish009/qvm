@@ -1,84 +1,83 @@
-# qvm_v0.0003 reliability results
+# 0.0.4 local verification results
 
 ## Scope
 
-Version0.0.3 is a reliability correction to the counterfactual-semantics VM. It adds no new semantic axis and makes
-no physical-law or quantum-advantage claim. Program, SemanticProfile and Backend remain independent. The goal is
-to distinguish law changes from numerical repair, invalid conditional branches and backend dispatch behavior.
+This release implements QKV-free typed overlap algebra and differentiable execution. It is an infrastructure
+release, not a comparative learning experiment or a claim that attention is harmful. The historical 99.74% model
+remains a reference case rather than a mandatory backbone.
 
-## Independently reported regressions
+Validated locally with Python 3.14, NumPy 2.4.6 and PennyLane 0.45.1. The hosted Python 3.11–3.14 CI matrix must still
+be run after the owner uploads the source.
 
-All reported cases were first reproduced against0.0.2 and then frozen as0.0.3 tests.
+## Tests and equation checks
 
-| case | 0.0.2 behavior | 0.0.3 behavior |
-|---|---|---|
-| `diag(1,0)`, spectral beta=.1 | `diag(.9617135,.0382865)` | exactly `diag(1,0)` |
-| positive branch probability `5e-15` | branch trace `.5` | branch trace `1` |
-| zero-probability direct branch | numeric placeholder accessible | raises `UndefinedBranch` |
-| equal probabilities, alpha=10000 | `[NaN,NaN]` | exactly `[.5,.5]` |
-| NaN/Inf semantic parameters | accepted until invalid output | rejected before execution |
-| spoofed `partial_swap*` program name | PennyLane ran a different tape | `UnsupportedLowering` |
-| sealed instruction attrs/return | mutable | public mutations rejected |
+- **42 unit tests passed**: 22 retained legacy tests and 20 overlap/type/gradient regressions.
+- Returning an unannotated legacy `ry_product_state` now correctly returns a normalized ket.
+- Typed intermediate validation, complex conjugation, Gram PSD, independent rephasing, cyclic products,
+  coherent-sum norm identities, cancellation, and rank-deficient ridge cases are checked.
+- Normalization accepts representable tiny/huge nonzero amplitudes and explicitly rejects zero; no epsilon state
+  or artificial success branch is inserted.
+- Autograd versus finite differences is tested through complex encoding, Gram/ridge solves, coefficient learning,
+  normalization, readout, density conversion, unitary evolution and cyclic products.
+- A subprocess blocks every PyTorch import and trains the small example through both overlap backends.
+- Unknown ops/attributes, incompatible result annotations and nonstandard overlap profiles are rejected.
+- Supported changes to return values execute the actual tape rather than a circuit chosen by program name.
 
-Positive powers now preserve null support. Singular logarithms and negative powers use explicit strict-domain errors
-rather than an eigenvalue floor. Roundoff projections are governed by a separate `NumericalPolicy` and included in
-the execution audit when they actually occur.
+Across 100 random batched complex-overlap cases:
 
-## Backend and program integrity
-
-PennyLane lowering no longer dispatches on `program.name`. It requires an exact name-independent structural hash
-of a supported opcode sequence, attributes and return value. Renaming an otherwise identical canonical program is
-accepted; changing its returned intermediate value is rejected. Nonstandard semantic profiles remain rejected.
-
-Sealing converts the instruction tape to immutable tuples and recursively freezes instruction attributes. Program
-name and output are read-only properties. Mutating a detached `record()` cannot alter the program. v0.0002 JSON
-can be read, after which it is resealed and serialized under the v0.0003 schema with a new identity hash.
-
-## Declared versus used assumptions
-
-Audit records now include `used_assumptions`, `unused_changed_assumptions` and `numerical_interventions`. For an
-escort-alpha4 profile executing a Bures-only program, `born_exponent` is correctly reported as declared but unused.
-The same profile executing POVM measurement reports `measurement_exponent` as used.
-
-The spectral application scope is explicitly `per_evolution_instruction`; trace entries number each semantic
-evolution event. No instruction-decomposition invariance is silently assumed.
-
-## Property and counterexample report
-
-The deterministic property explorer evaluated28 profile/property cells. All enforced probability-simplex,
-density-state and tensor-associativity checks passed. Four expected exploratory counterexamples were retained:
-
-| profile | property | maximum difference |
-|---|---|---:|
-| escort alpha4 | outcome refinement/recombination | .1666667 |
-| partial collapse kappa=.5 | selective repeatability | .2 |
-| spectral beta2 | one versus two identity-evolution events | .0549325 |
-| spectral beta2 | convex-mixture affinity | .1274808 |
-
-These are characteristics of the declared alternatives, not discarded samples or evidence that the alternatives
-are laws of nature.
-
-## Regression and source reproduction
-
-Twenty-two tests pass, covering the original API, trainable semantic gradients, exact endpoints, branch domains,
-extreme exponents, deep sealing, structural lowering, used-assumption audit and counterexample preservation.
-PyTorch is not imported.
-
-The portable100-case standard reference remains reproduced under the declared standard profile:
-
-| equation | maximum error |
+| Check | Maximum error |
 |---|---:|
-| product-RY fidelity |1.46e-16|
-| historical mixed Bures |1.64e-14|
-| sandwiched Rényi alpha=.9 |1.60e-13|
-| partial-SWAP density update |2.22e-16|
+| NumPy preparation vs PennyLane QNode overlap | 3.61e-16 |
+| coherent norm versus c†Gc (example) | 0 |
+| cyclic product under independent state rephasing (example) | 2.22e-17 |
+| regularized span output under state rephasing (example) | 2.69e-16 |
 
-These are implementation-consistency results conditional on the profile. They do not validate the underlying
-physical assumptions.
+PennyLane independently prepares states; subsequent algebra is shared host math and separately checked against
+explicit algebraic references. These are implementation/invariance checks, not proof of quantum advantage.
 
-## Coverage boundary
+## Attention-free learning smoke example
 
-Implemented alternatives remain escort measurement, partial collapse and post-evolution spectral power. Held
-fixed are complex density states, tensor composition and convex input mixtures. Alternative scalar fields, state
-spaces, composition rules, signed states, hidden variables, physical hardware behavior and unknown alternatives
-remain uncovered.
+`examples/train_overlap_embedding.py` trains a shared 12-parameter input-to-state encoder with pairwise fidelity
+loss. There are no Q/K/V projections, Transformer, or softmax routing. The second run uses actual differentiable
+PennyLane QNodes during optimization.
+
+Same data, initialization, full batches, learning rate 0.3, 40 steps, seed 404:
+
+| Metric | NumPy overlap | PennyLane overlap |
+|---|---:|---:|
+| Initial training pair loss | 0.479322 | 0.479322 |
+| Final training pair loss | 0.002937 | 0.002937 |
+| Held-out pair loss | 0.011856 | 0.011856 |
+
+- Final parameter difference: 5.55e-17.
+- Held-out similarity difference: 8.88e-16.
+- PennyLane full-loss directional finite-difference error: 8.35e-11.
+- Histories, data, parameters and predictions: `artifacts/overlap_learning.json` and `.npz`, generated by the example.
+
+This demonstrates a functioning gradient path, not a benchmark, statistical confirmation, or superiority over
+attention/classical learning. No promotion criteria are applied.
+
+## Legacy reproduction
+
+100 frozen standard cases still reproduce:
+
+| Equation | Maximum error |
+|---|---:|
+| product-RY fidelity | 1.46e-16 |
+| mixed Bures | 1.65e-14 |
+| sandwiched Renyi (alpha 0.9) | 1.60e-13 |
+| partial-SWAP | 2.23e-16 |
+
+The prior reliability cases and four expected diagnostic counterexamples remain covered. The 12-wire historical
+fidelity equation is checked, but a new full 99.74% attention retraining run is not part of this release.
+
+## Remaining limitations
+
+- New overlap backends support a deliberately small standard-complex dialect, not arbitrary quantum programs.
+- Legacy PennyLane lowering remains verification-only.
+- No finite-shot, hardware cost, quantum speedup or physical-law claim follows from simulator state access.
+- A coherent-sum norm is not automatically a postselection probability.
+- The explicit ridge smoother is neither an exact projector nor invariant to arbitrary changes in sampling or
+  duplicated basis vectors.
+- New scientific experiments are still needed to compare overlap-based representation, set geometry and dynamics
+  with attention or other architectures. This release makes those experiments less architecture-constrained.

@@ -1,217 +1,146 @@
-# qvm_v0.0003
+# QVM 0.0.4 — overlap learning without an attention requirement
 
-**An auditable counterfactual-semantics virtual machine for quantum learning equations.**
+**Small, auditable quantum-equation programs for NumPy and PennyLane.**
 
-Most quantum simulators ask: *what does a chosen quantum model predict?* This project asks an earlier question:
-*which assumptions produced that prediction, and what changes when one assumption is replaced?*
-
-`Program`, `SemanticProfile`, and `Backend` are independent inputs:
+QVM is execution infrastructure, not a proposed physical theory, a model architecture, or a quantum-advantage claim.
+Version 0.0.4 adds composable **overlap-based representation and state algebra without Q/K/V, softmax, or a
+Transformer**. Earlier counterfactual-semantics examples remain available, but are not the objective or a gate for
+learning research.
 
 ```text
-result = QVM.run(program, inputs, semantics, backend)
+QVM.run(program, inputs, semantics, backend)
 ```
 
-The standard complex-density/Born/Lüders/linear-CPTP model is included as one explicit profile. It is not hidden
-inside the VM and is not treated as empirically proven by simulator agreement.
+Program, semantic assumptions, numerical policy, and execution backend remain separate. This project is not
+Rigetti's QVM and does not execute Quil.
 
-> This project is not Rigetti's QVM, does not execute Quil, and is not a hardware emulator. The simple directory
-> name is retained for this research lineage. It makes no claim that its counterfactual profiles are laws of
-> nature.
+## What's new
 
-## Why
-
-Agreement between NumPy and PennyLane can show implementation consistency while both implementations share the
-same physical assumptions. qvm_v0.0003 records and replaces those assumptions so that conclusions remain
-conditional on a visible coverage set.
-
-Implemented assumption axes:
-
-| Axis | Standard point | Counterfactual family |
-|---|---|---|
-| Measurement | Born exponent2 | Escort exponent alpha>0 |
-| Selective update | Lüders collapse strength1 | Partial/no collapse kappa in[0,1] |
-| Evolution | Linear map, spectral power1 | Normalized spectral power beta>0 after evolution |
-
-Held standard in this release: complex density states, tensor-product composition, and convex input mixtures.
-Alternative scalar fields, alternative composition laws, signed states and unknown alternatives are explicitly
-**not covered**.
-
-Version0.0.3 is a reliability correction rather than a new semantic family. It separates numerical policy from
-semantic law, preserves exact zero support for positive powers, marks zero-probability branches undefined, uses
-stable finite measurement normalization, deeply seals programs, structurally validates PennyLane lowerings and
-records assumptions actually used during execution.
+- Explicit result types, independent of instruction roles: ket, amplitude, state collection, density, Gram,
+  operator, Hermitian operator, unitary, complex, real, angles, and coefficients.
+- Fixed returning a valid pure state: it is no longer incorrectly validated as a square density matrix.
+- Batched real/complex state encoders, complex overlaps, Gram matrices, cyclic overlap products, linear
+  superpositions, explicit normalization, pure-state evolution, density conversion, and expectation readout.
+- Explicitly regularized span projection with a reported ridge, not a disguised exact projector.
+- Differentiable `numpy_overlap` and `pennylane_overlap` backends for a documented instruction subset.
+- An attention-free overlap-metric training example, with PennyLane QNodes in the actual gradient path.
+- Old standard-equation and reliability regressions retained; old program JSON accepted.
 
 ## Install
 
-After downloading or cloning the repository, open a terminal in its root directory. For active research, use an
-editable install so source changes are immediately visible:
+Python 3.11 or newer; NumPy >=2; PennyLane 0.45.x. No PyTorch, GPU, QPU, network dataset, or sibling research
+repository is required.
 
 ```bash
 python -m pip install -e .
+python -c "import qvm; print(qvm.__version__)"
 ```
 
-Then import it from any working directory:
+Distribution: `qvm-counterfactual`; import: `qvm`; version: `0.0.4`. Use a virtual environment if another package
+uses the generic `qvm` namespace. A release wheel can be installed instead of the editable source.
 
-```python
-import qvm
-print(qvm.__version__)
-```
-
-For a frozen installation, install the built wheel instead:
-
-```bash
-python -m pip install dist/qvm_counterfactual-0.0.3-py3-none-any.whl
-```
-
-A wheel is normally attached to a GitHub Release rather than committed with the source tree.
-
-The distribution name is `qvm-counterfactual`; the Python import name is `qvm`. Check an installation with
-`python -m pip show qvm-counterfactual`. Because `qvm` is a generic import name, use an isolated virtual
-environment if another installed project exposes the same namespace. The validated environment uses Python3.14,
-NumPy2.4.6 and PennyLane0.45.1. PyTorch is not required.
-
-## Quick start
+## Raw complex overlap, not necessarily fidelity
 
 ```python
 import numpy as np
-from qvm import QVM, povm_measurement, standard_profile, escort_profile
-
-I = np.eye(2, dtype=complex)
-Z = np.diag([1, -1]).astype(complex)
-effects = np.array([(I + 0.8*Z)/2, (I - 0.8*Z)/2])
-inputs = {"r": np.array([0.3, 0.1, 0.4]), "effects": effects}
+from qvm import QVM, encoded_overlap
 
 vm = QVM()
-program = povm_measurement()
-
-standard = vm.run(program, inputs, standard_profile(), audit=True)
-alternative = vm.run(program, inputs, escort_profile(1.4), audit=True)
-
-assert standard.program_sha256 == alternative.program_sha256
-print(standard.value, alternative.value)
-print(alternative.semantics["changed_assumptions"])
-print(alternative.used_assumptions)
-print(alternative.unused_changed_assumptions)
-print(alternative.numerical_interventions)
+program = encoded_overlap(complex_encoding=True)
+inputs = {
+    # (..., wires, 2): RY angle, then RZ angle on each wire
+    "left": np.array([[0.4, 0.7], [0.8, -0.2]]),
+    "right": np.array([[1.0, -0.1], [0.3, 0.6]]),
+}
+a = vm.run(program, inputs, backend="numpy_overlap", audit=True)
+b = vm.run(program, inputs, backend="pennylane_overlap")
+np.testing.assert_allclose(a.value, b, atol=1e-14)
+print(a.value)                         # <left|right>, generally complex
+print(a.trace)
 ```
 
-The program hash is unchanged; only the semantic profile changes.
+Set `fidelity=True` only when squared magnitude is the desired operation. The unsquared amplitude has a phase
+convention fixed by the preparation circuit. It is not by itself invariant to independent global rephasings of
+its two states.
 
-## Profiles
-
-### Standard
+## Build a program without QKV
 
 ```python
-standard_profile()
+from qvm import Program
+
+p = Program("set_geometry")
+p.input("angles", "angles")
+p.emit("states", "encode_ryrz", "angles", role="state", result_type="ket")
+p.emit("collection", "as_collection", "states", result_type="state_collection")
+p.emit("G", "gram_matrix", "collection", result_type="gram")
+p.emit("cycle", "cyclic_overlap", "G", indices=[0, 1, 2], result_type="complex")
+p.returns("cycle")
 ```
 
-Declares complex density states, tensor products, linear CPTP evolution, Born probabilities and Lüders selective
-updates.
+For angles shaped `(items, wires, 2)`, this returns `G[0,1] G[1,2] G[2,0]`, invariant under each state's independent
+global rephasing. Leading batch axes are supported. A Gram matrix is **not** a density matrix: no trace-one
+constraint or automatic trace normalization is applied to it.
 
-### Escort measurement
+See [OVERLAP_API.md](OVERLAP_API.md) for the full supported dialect and [MIGRATION.md](MIGRATION.md) for compatibility.
 
-For raw Born probabilities `p_i`,
+## Backends and what they verify
 
-```text
-P_alpha(i) = p_i^(alpha/2) / sum_j p_j^(alpha/2)
-```
+| Backend | Scope | Differentiation / verification |
+|---|---|---|
+| `numpy_overlap` | New standard-complex overlap dialect | PennyLane NumPy / Autograd, explicit batched algebra |
+| `pennylane_overlap` | Same validated composable dialect | RY/RZ state preparation through actual differentiable QNodes; subsequent host algebra is shared |
+| `numpy_semantic` | Legacy density/measurement/evolution programs | Existing Autograd paths and counterfactual profiles; not a universal differentiability promise |
+| `pennylane_standard` | Three legacy canonical tapes | Independent circuit verification; **not** a general training backend |
 
-`alpha=2` is the standard point. Other values are counterfactual measurement semantics, not physical claims.
+The new dialect rejects counterfactual profiles, unknown opcodes, unknown attributes, wrong arity, and incompatible
+types. It interprets every supported instruction, including a changed return value; names do not select a hidden
+circuit. The old PennyLane backend still uses exact structural matching of its supported canonical tapes.
 
-```python
-escort_profile(alpha=1.5)
-```
+PennyLane overlap agreement independently checks state preparation, not every downstream matrix operation.
+Separate direct-algebra, invariance, and finite-difference tests check those host operations. Returning a simulator
+statevector is not free amplitude access on a QPU.
 
-### Partial collapse
-
-For the Lüders branch state `rho_i`,
-
-```text
-rho_i(kappa) = (1-kappa) rho + kappa rho_i
-```
-
-`kappa=1` is Lüders; `kappa=0` leaves the state unchanged.
-
-```python
-partial_collapse_profile(kappa=0.5)
-```
-
-Strictly positive Born-probability branches are normalized by their actual probability. Full selective results
-expose a `defined` mask; requesting a zero-probability conditional state raises `UndefinedBranch`.
-
-### Spectral-power evolution
-
-After an otherwise standard evolution,
-
-```text
-rho -> rho^beta / Tr(rho^beta)
-```
-
-`beta=1` is linear standard evolution. Other values are nonlinear and generally do not preserve convex mixtures.
-
-```python
-spectral_power_profile(beta=1.7)
-```
-
-Profiles can be combined with `counterfactual_profile(...)`. Every profile produces a canonical assumption
-manifest, a hash, enforced invariants, known departures and an explicit `NumericalPolicy`. Positive matrix powers
-preserve exact zero support; singular logarithms and negative powers raise `NumericalDomainError` rather than
-silently flooring eigenvalues.
-
-## Programs and semantic roles
-
-Instructions are tagged as `data`, `state`, `composition`, `evolution`, `measurement`, `host_math`, or `output`.
-Programs are deeply sealed after construction: instruction collections, attributes, names and return values cannot
-be changed through the public API. They serialize to canonical JSON with both identity and name-independent
-structural SHA-256 hashes.
-
-Included programs:
-
-- POVM and selective projective measurement;
-- unitary and Kraus evolution;
-- product-RY fidelity;
-- mixed Bures geometry;
-- sandwiched Rényi geometry;
-- tensor/partial-SWAP/partial trace.
-
-Host geometry such as Bures or matrix logarithms is not mislabeled as a physical gate.
-
-## Backends
-
-- `numpy_semantic`: differentiable dense execution under any implemented profile.
-- `pennylane_standard`: independent circuit execution under the standard profile only.
-
-A nonstandard profile sent to `pennylane_standard` raises `UnsupportedLowering`. Standard lowering additionally
-requires an exact supported instruction tape, attributes and return value; program names are not dispatch keys.
-The VM never silently converts a counterfactual law or altered tape into a standard PennyLane circuit.
-
-## Reproduce
+## Run
 
 ```bash
 python -m unittest discover -s tests -v
-python examples/reproduce_reliability_cases.py
+python examples/inspect_overlap_geometry.py
+python examples/train_overlap_embedding.py
 python examples/reproduce_standard_semantics.py
+python examples/reproduce_reliability_cases.py
 python examples/assumption_sweep.py
 python examples/discover_counterexamples.py
 ```
 
-The standard profile reproduces preserved product-fidelity, Bures, Rényi and partial-SWAP equations. The sweep
-shows that one unchanged program produces distinct normalized outputs under declared rival assumptions. The
-property explorer stores expected refinement, repeatability, mixture and event-decomposition counterexamples
-instead of filtering them out.
+The learning example trains one shared input-to-state encoder against pairwise similarity targets. It has no
+query/key/value projections or attention. Both backends train from the same parameters and data; histories,
+checkpoints, held-out similarities, and derivative checks are saved under `artifacts/`.
 
-See `RESULTS.md`, `ASSUMPTIONS.md`, and the JSON artifacts under `artifacts/`.
+This is a small engineering example, **not** evidence that overlap beats attention or another learner. Larger
+comparative experiments remain separate from this package release. There are no candidate-promotion thresholds.
 
-## Interpretation boundary
+## Numerical and physical boundaries
 
-A profile yielding better machine-learning performance would show that its mathematical operation is useful. It
-would not by itself show that nature follows that profile. Conversely, agreement of standard NumPy and
-PennyLane backends establishes consistency under shared assumptions, not proof of those assumptions.
+- Zero amplitude may be represented but cannot be normalized; this raises `NumericalDomainError`.
+- Normalization rescales by the maximum absolute component before computing its norm. No epsilon state is added.
+- `ridge_project` requires an explicit positive ridge, records it, and is not an idempotent orthogonal projector.
+- Ket, density, and Gram validation have different mathematical contracts. Validation does not repair inputs.
+- State norms of arbitrary coherent sums are **not** postselection success probabilities. A physical filter
+  requires a specified contractive scaling and implementation.
+- Finite differences are checked for real trainable parameters and real losses through complex intermediates.
+  Nonsmooth points, singular inverse problems, arbitrary eigendecomposition derivatives, and second derivatives
+  are not generally guaranteed.
+- There is no generic QPU compiler, finite-shot estimator, sparse/tensor-network backend, or broad gate-language
+  interpreter in this release. Dense state preparation remains exponential in wire count.
 
-No finite set of profiles covers every way an assumption can fail. Every report must list implemented, held
-fixed, and unexamined assumptions. This limitation is a design requirement, not a footnote.
+Counterfactual assumptions and numerical policy remain documented in [ASSUMPTIONS.md](ASSUMPTIONS.md). Property
+counterexamples describe the selected mathematical profile; they are not learning-selection gates.
+
+## Publication
+
+See [PUBLICATION_CHECKLIST.md](PUBLICATION_CHECKLIST.md) for GitHub's **Add file → Upload files** workflow.
+Local verification is not hosted CI verification. Upload and release creation are performed by the repository owner.
 
 ## License
 
-Apache-2.0. Review attribution and repository metadata before publishing under a personal or organizational
-GitHub account.
+Apache-2.0; see `LICENSE`. Preserve attribution when redistributing.
