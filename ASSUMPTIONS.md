@@ -5,7 +5,7 @@
 A backend answers an immutable program under a semantic profile. It does not define that profile. Agreement across
 software backends tests implementation consistency under shared assumptions, not the truth of those assumptions.
 
-## Typed overlap extension (0.0.4)
+## Typed overlap extension (0.0.4), extended by the equation layers (0.0.5)
 
 The new overlap dialect supports standard complex Hilbert algebra without an attention/QKV architecture. A ket is
 another representation of a pure density state; amplitudes, Gram matrices, coefficients and operators are distinct

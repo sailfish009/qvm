@@ -1,3 +1,37 @@
+# Migrating 0.0.4 → 0.0.5
+
+## Preserved
+
+- Distribution `qvm-counterfactual`, import `qvm`, `QVM.run(...)`, default backend and all legacy backend names.
+- Every legacy program (`product_ry_fidelity`, `mixed_bures`, `sandwiched_renyi`, `partial_swap`, `kraus_channel`),
+  every `SemanticProfile` field, and every numerical-policy field from 0.0.4 (new fields have defaults).
+- All 42 retained tests, including the schema round-trip, now resealing to `qvm_v0.0005`.
+
+## Changed
+
+1. New serializations use `qvm_v0.0005`; schemas v0.0002/v0.0003/v0.0004 load and reseal as v0.0005.
+   Identity hashes change across schema versions; keep original JSON/hashes as provenance.
+2. `NumericalPolicy` adds `proper_time_cutoff` (default 40.0) and `hermitian_roundoff_tolerance` (default 1e-10).
+   The former parameterizes finite proper-time integration; the latter makes a non-Hermitian matrix an explicit
+   `NumericalDomainError` instead of being silently symmetrized.
+3. The value-type set adds `spectrum`. Generators reuse `hermitian`, sources reuse `amplitude`, propagators/commutators
+   reuse `operator`.
+4. The opt-in overlap dialect adds the sixteen opcodes in `EQUATIONS.md`. They require standard semantics and are the
+   only place the new value type is produced.
+5. `tools/build_upload.py` derives the version and archive tag from `qvm.__version__` instead of a hardcoded string.
+
+## Not promised
+
+The new layer opcodes are small standard-algebra primitives, not a claim of quantum advantage or a new
+counterfactual law. `resolvent` requires a positive spectral shift; only the free Gaussian generating functional is
+implemented; duality is a probed invariant, not a new semantic axis.
+
+```bash
+python -m pip install -e .
+python -c "import qvm; print(qvm.__version__)"
+python -m unittest discover -s tests -v
+```
+
 # Migrating 0.0.3 → 0.0.4
 
 ## Preserved

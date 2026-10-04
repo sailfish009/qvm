@@ -1,11 +1,11 @@
-# QVM 0.0.4 — overlap learning without an attention requirement
+# QVM 0.0.5 — quantum-equation layers without an attention requirement
 
 **Small, auditable quantum-equation programs for NumPy and PennyLane.**
 
 QVM is execution infrastructure, not a proposed physical theory, a model architecture, or a quantum-advantage claim.
-Version 0.0.4 adds composable **overlap-based representation and state algebra without Q/K/V, softmax, or a
-Transformer**. Earlier counterfactual-semantics examples remain available, but are not the objective or a gate for
-learning research.
+Version 0.0.5 adds four composable **quantum-equation concept layers** on one tape — overlap (observable),
+Schrodinger (dynamics), duality (constraint) and Schwinger (response) — with no Q/K/V, softmax, or Transformer.
+Earlier counterfactual-semantics and overlap examples remain available, but are not a gate for learning research.
 
 ```text
 QVM.run(program, inputs, semantics, backend)
@@ -16,8 +16,14 @@ Rigetti's QVM and does not execute Quil.
 
 ## What's new
 
+- Four equation layers sharing one opt-in typed dialect; see `EQUATIONS.md` for contracts, math and invariants:
+  - I. overlap: `gram_spectrum`, `spectral_participation`, `gram_coherence`, `phase_ablate`.
+  - II. Schrodinger: `generator_spectrum`, `matrix_exponential`, `time_ordered_evolve`, `commutator`, `frobenius_norm`.
+  - III. duality: `detector_duality`, `path_duality`, `duality_slack` (the `D^2 + V^2 <= 1` invariant).
+  - IV. Schwinger: `resolvent`, `proper_time_resolvent`, `source_response`, `generating_functional`.
+- Added the `spectrum` value type; generators reuse `hermitian`, sources reuse `amplitude`, Green functions reuse `operator`.
 - Explicit result types, independent of instruction roles: ket, amplitude, state collection, density, Gram,
-  operator, Hermitian operator, unitary, complex, real, angles, and coefficients.
+  operator, Hermitian operator, unitary, complex, real, angles, coefficients, and spectrum.
 - Fixed returning a valid pure state: it is no longer incorrectly validated as a square density matrix.
 - Batched real/complex state encoders, complex overlaps, Gram matrices, cyclic overlap products, linear
   superpositions, explicit normalization, pure-state evolution, density conversion, and expectation readout.
@@ -36,7 +42,7 @@ python -m pip install -e .
 python -c "import qvm; print(qvm.__version__)"
 ```
 
-Distribution: `qvm-counterfactual`; import: `qvm`; version: `0.0.4`. Use a virtual environment if another package
+Distribution: `qvm-counterfactual`; import: `qvm`; version: `0.0.5`. Use a virtual environment if another package
 uses the generic `qvm` namespace. A release wheel can be installed instead of the editable source.
 
 ## Raw complex overlap, not necessarily fidelity

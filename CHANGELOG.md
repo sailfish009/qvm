@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.0.5
+
+Four quantum-equation concept layers in one opt-in typed dialect, plus a
+minimalist core refactor. Standard semantics are unchanged; no new
+counterfactual law and no superiority claim over attention.
+
+- I. overlap (observable): `gram_spectrum`, `spectral_participation`,
+  `gram_coherence`, `phase_ablate`;
+- II. Schrodinger (dynamics): `generator_spectrum`, `matrix_exponential`,
+  `time_ordered_evolve`, `commutator`, `frobenius_norm`;
+- III. duality (constraint): `detector_duality`, `path_duality`, `duality_slack`
+  expose the D^2+V^2<=1 complementarity invariant;
+- IV. Schwinger (response): `resolvent`, `proper_time_resolvent`,
+  `source_response`, `generating_functional` (stationary-action response);
+- added the `spectrum` value type; generators reuse `hermitian`, sources reuse
+  `amplitude`, Green functions reuse `operator`;
+- added `NumericalPolicy.proper_time_cutoff` for finite proper-time integration;
+- schema is now `qvm_v0.0005`; v2/v3/v4 JSON imports are resealed into v5;
+- refactored `ir.py`, `numerics.py`, `semantics.py`, `vm.py` and the dense
+  backend back to a readable, minimal style (one statement per line, no dead
+  code) and made matrix Hermiticity checks explicit instead of silent;
+- made Bloch-input validation batch-aware;
+- `tools/build_upload.py` now reads the version from `qvm.__version__`;
+- added `EQUATIONS.md` and `tests/test_equations_v5.py` with closed-form
+  classical lowerings for every new opcode;
+- retained all v4 tests and behavior (59 tests total).
+
 ## 0.0.4
 
 Typed overlap-learning infrastructure, with no attention/QKV requirement:

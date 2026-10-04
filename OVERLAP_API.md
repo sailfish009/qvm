@@ -1,7 +1,8 @@
-# Overlap dialect (0.0.4)
+# Overlap dialect (0.0.5)
 
 Select `backend="numpy_overlap"` or `backend="pennylane_overlap"` explicitly. The default backend remains
-`numpy_semantic` for legacy compatibility. New opcodes are not silently inserted into old executors.
+`numpy_semantic` for legacy compatibility. New opcodes are not silently inserted into old executors. The four
+equation layers (I overlap, II Schrodinger, III duality, IV Schwinger) are documented in `EQUATIONS.md`.
 
 ## Value types and layout
 
@@ -22,6 +23,7 @@ Array arguments should be NumPy/PennyLane NumPy arrays. Leading axes are batch a
 | `coefficients` | `(..., N)`, real or complex; no probability constraint |
 | `complex` | finite scalar or tensor, real dtype also allowed |
 | `real` | finite real-dtype scalar or tensor |
+| `spectrum` | `(..., D)`, finite real eigenvalues (ascending where produced by `eigvalsh`) |
 
 Instruction `role` describes intent; `result_type` describes the value. A ket is a representation of a pure density
 state, not an alternative physical state space. A Gram matrix or amplitude is a mathematical intermediate, not a

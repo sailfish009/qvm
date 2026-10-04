@@ -1,3 +1,50 @@
+# 0.0.5 local verification results
+
+## Scope
+
+This release implements four quantum-equation concept layers (overlap, Schrodinger, duality, Schwinger) as an
+opt-in typed dialect plus a minimalist core refactor. Standard semantics are unchanged. It is an infrastructure
+release, not a comparative learning experiment and not a claim of quantum advantage.
+
+Validated locally with Python 3.14, NumPy 2.4.6 and PennyLane 0.45.1. The hosted CI matrix must still be run after upload.
+
+## Tests and equation checks
+
+- **59 unit tests passed**: 42 retained legacy/overlap regressions and 17 new four-layer regressions.
+- Every new opcode is checked against an independent closed-form reference (its exact classical lowering).
+- Non-commutativity is demonstrated by reversing `time_ordered_evolve` inputs and asserting a changed propagator.
+- Duality `D^2 + V^2 = 1` holds for random pure detectors; dephasing shrinks path visibility and preserves predictability.
+- `proper_time_resolvent` converges to `resolvent` and its error is asserted below the analytic truncation bound.
+- The `generating_functional` gradient reproduces the response `G J` exactly.
+
+Reference checks (max over random batches):
+
+| Check | Maximum error |
+|---|---:|
+| `matrix_exponential` vs independent `eigh` and unitarity | 2.89e-15 |
+| `time_ordered_evolve` vs explicit ordered product | 0 |
+| `resolvent` vs `(H - omega) G = I` | 9.33e-15 |
+| detector duality `D^2 + V^2 = 1` | 2.22e-16 |
+
+`proper_time_resolvent` differs from `resolvent` by `exp(-(E_min-omega) L)/(E_min-omega)` up to the finite cutoff
+`L`. The discrepancy is small when the source energy is well below the spectrum and grows near threshold, exactly as
+the truncation formula predicts. This is reported, not repaired; the cutoff is a declared numerical policy.
+
+## Minimalist refactor
+
+`ir.py`, `numerics.py`, `semantics.py`, `vm.py` and `backends/numpy_semantic.py` were rewritten in a readable,
+minimal style (one statement per line, no dead code). The dead `unitary` branch in `vm._validate` was removed; matrix
+Hermiticity is now checked explicitly; Bloch-input validation is batch-aware. Behavior is unchanged, verified by the
+42 retained tests.
+
+## Remaining limitations
+
+- New opcodes are deliberately small standard-algebra primitives, not arbitrary quantum programs.
+- No retarded `iε` branch and no functional-derivative tower; only the free Gaussian generating functional.
+- Duality is an exposed invariant, not a new `SemanticProfile` axis.
+- No finite-shot, hardware, speedup or physical-law claim follows from simulator state access.
+- New scientific experiments comparing these layers with attention/classical architectures remain future work.
+
 # 0.0.4 local verification results
 
 ## Scope

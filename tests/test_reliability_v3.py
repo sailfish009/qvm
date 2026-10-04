@@ -46,9 +46,9 @@ class ReliabilityTests(unittest.TestCase):
   result=self.vm.run(unitary_evolution(),{'r':np.array([0.,0.,1+1e-14]),'unitary':I},spectral_power_profile(2),audit=True);self.assertTrue(any(x['kind']=='negative_eigenvalue_roundoff_projection' for x in result.numerical_interventions))
  def test_property_explorer_preserves_counterexamples(self):
   report=default_property_report(self.vm);found={(x['profile'],x['property']) for x in report['counterexamples']};self.assertIn(('escort_born_4','measurement_outcome_refinement'),found);self.assertIn(('partial_collapse_0.5','selective_measurement_repeatability'),found);self.assertIn(('spectral_power_2','identity_evolution_decomposition'),found);self.assertIn(('spectral_power_2','convex_mixture_affinity'),found);self.assertFalse(any(x['profile']=='standard_quantum' for x in report['counterexamples']))
- def test_old_json_is_imported_then_resealed_as_v4(self):
-  for schema in ('qvm_v0.0002','qvm_v0.0003'):
-   text=unitary_evolution().to_json().replace('qvm_v0.0004',schema);p=Program.from_json(text);self.assertEqual(p.record()['schema'],'qvm_v0.0004');self.assertTrue(p.sealed)
+ def test_old_json_is_imported_then_resealed_as_current(self):
+  for schema in ('qvm_v0.0002','qvm_v0.0003','qvm_v0.0004'):
+   text=unitary_evolution().to_json().replace('qvm_v0.0005',schema);p=Program.from_json(text);self.assertEqual(p.record()['schema'],'qvm_v0.0005');self.assertTrue(p.sealed)
  def test_trainable_spectral_gradient_on_full_rank_state(self):
   p=unitary_evolution();r=np.array([.2,-.1,.4])
   def loss(beta):return anp.real(self.vm.run(p,{'r':r,'unitary':I},spectral_power_profile(beta))[0,0])

@@ -7,13 +7,18 @@ import hashlib
 import json
 from pathlib import Path
 import shutil
+import sys
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = '0.0.4'
-TOP_FILES = ('README.md', 'OVERLAP_API.md', 'MIGRATION.md', 'ASSUMPTIONS.md',
-             'CHANGELOG.md', 'CONTRIBUTING.md', 'PUBLICATION_CHECKLIST.md',
-             'RESULTS.md', 'LICENSE', 'pyproject.toml', 'requirements.txt', '.gitignore')
+sys.path.insert(0, str(ROOT))
+from qvm import __version__ as VERSION  # single source of truth
+ARTIFACT_TAG = 'v0.000' + VERSION.split('.')[-1]
+
+TOP_FILES = ('README.md', 'OVERLAP_API.md', 'EQUATIONS.md', 'MIGRATION.md',
+             'ASSUMPTIONS.md', 'CHANGELOG.md', 'CONTRIBUTING.md',
+             'PUBLICATION_CHECKLIST.md', 'RESULTS.md', 'LICENSE', 'pyproject.toml',
+             'requirements.txt', '.gitignore')
 TOP_DIRS = ('qvm', 'tests', 'examples', 'reference', '.github', 'tools')
 
 
@@ -33,7 +38,7 @@ def main():
     (target/'SOURCE_MANIFEST.json').write_text(json.dumps({
         'schema': 'qvm-source-bundle-v1', 'version': VERSION,
         'excludes_self': True, 'sha256': hashes}, indent=2)+'\n')
-    archive = artifacts/'qvm_v0.0004_github_upload.zip'
+    archive = artifacts/f'qvm_{ARTIFACT_TAG}_github_upload.zip'
     with zipfile.ZipFile(archive, 'w', compression=zipfile.ZIP_DEFLATED) as z:
         for p in sorted(target.rglob('*')):
             if p.is_file():

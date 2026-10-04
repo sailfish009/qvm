@@ -8,13 +8,15 @@ from functools import lru_cache
 import numpy as np
 import pennylane as qml
 from pennylane import numpy as anp
-from ..numerics import NumericalDomainError
+from ..numerics import NumericalDomainError, ordinary
 from ..value_types import VALUE_TYPES, primal, validate_value
 from .pennylane_standard import UnsupportedLowering
 
 # opcode: (input contracts, output contract, required attribute names)
 VECTORS = frozenset({'ket', 'amplitude', 'state_collection'})
+OPERATORS = frozenset({'operator', 'hermitian', 'unitary'})
 SPEC = {
+    # I. overlap: what a measurement can see
     'encode_ry': (('angles',), 'ket', frozenset()),
     'encode_ryrz': (('angles',), 'ket', frozenset()),
     'inner_product': ((VECTORS, VECTORS), 'complex', frozenset()),
@@ -28,6 +30,25 @@ SPEC = {
     'expectation': (('ket', 'hermitian'), 'real', frozenset()),
     'cyclic_overlap': (('gram',), 'complex', frozenset({'indices'})),
     'ridge_project': (('state_collection', 'ket'), 'amplitude', frozenset({'ridge'})),
+    'gram_spectrum': (('gram',), 'spectrum', frozenset()),
+    'spectral_participation': (('spectrum',), 'real', frozenset()),
+    'gram_coherence': (('gram',), 'real', frozenset()),
+    'phase_ablate': (('gram',), 'gram', frozenset()),
+    # II. Schrodinger: how overlap is carried by a generator
+    'generator_spectrum': (('hermitian',), 'spectrum', frozenset()),
+    'matrix_exponential': (('hermitian', 'real'), 'unitary', frozenset()),
+    'time_ordered_evolve': (('hermitian', 'real'), 'unitary', frozenset()),
+    'commutator': (('hermitian', 'hermitian'), 'operator', frozenset()),
+    'frobenius_norm': ((OPERATORS,), 'real', frozenset()),
+    # III. duality: how measurement destroys overlap
+    'detector_duality': (('ket', 'ket'), 'real', frozenset()),
+    'path_duality': (('density',), 'real', frozenset()),
+    'duality_slack': (('real',), 'real', frozenset()),
+    # IV. Schwinger: how a source generates overlap
+    'resolvent': (('hermitian', 'real'), 'operator', frozenset()),
+    'proper_time_resolvent': (('hermitian', 'real'), 'operator', frozenset()),
+    'source_response': ((OPERATORS, 'amplitude'), 'amplitude', frozenset()),
+    'generating_functional': ((OPERATORS, 'amplitude'), 'real', frozenset()),
 }
 
 
@@ -128,7 +149,42 @@ def normalize(amplitude):
     return scaled / anp.sqrt(anp.sum(anp.real(anp.conj(scaled) * scaled), axis=-1, keepdims=True))
 
 
-def execute_op(ins, args, pennylane, interventions):
+def _unitary_from_hermitian(operator, times):
+    eigenvalues, eigenvectors = anp.linalg.eigh(operator)
+    phases = anp.exp(-1j * anp.asarray(times)[..., None] * eigenvalues)
+    return (eigenvectors * phases) @ anp.conj(eigenvectors.swapaxes(-1, -2))
+
+
+def _time_ordered(operators, times):
+    """Ordered product U = P_{K-1} ... P_0 with P_k = exp(-i t_k H_k)."""
+    count = operators.shape[-3]
+    dim = operators.shape[-1]
+    result = anp.eye(dim, dtype=complex)
+    for k in range(count):
+        result = _unitary_from_hermitian(operators[..., k, :, :], times[..., k]) @ result
+    return result
+
+
+def _resolvent_kernel(operator, omega, policy, truncated):
+    eigenvalues, eigenvectors = anp.linalg.eigh(operator)
+    shifted = eigenvalues - omega
+    if ordinary(shifted) and float(anp.min(shifted)) <= 0:
+        raise NumericalDomainError('resolvent: shift must keep the spectrum positive')
+    if truncated:
+        weights = (1 - anp.exp(-shifted * policy.proper_time_cutoff)) / shifted
+    else:
+        weights = 1 / shifted
+    return (eigenvectors * weights) @ anp.conj(eigenvectors.swapaxes(-1, -2))
+
+
+def _detector_duality(left, right):
+    overlap = anp.sum(anp.conj(left) * right, axis=-1)
+    visibility = anp.abs(overlap)
+    distinguishability = anp.sqrt(anp.maximum(1 - visibility ** 2, 0))
+    return anp.stack((distinguishability, visibility), axis=-1)
+
+
+def execute_op(ins, args, pennylane, interventions, policy):
     op = ins.op
     if op in ('encode_ry', 'encode_ryrz'):
         return encode(args[0], op == 'encode_ryrz', pennylane)
@@ -180,6 +236,56 @@ def execute_op(ins, args, pennylane, interventions):
         interventions.append({'kind': 'declared_ridge_regularization', 'ridge': ridge,
                               'operation': 'ridge_project', 'exact_projector': False})
         return anp.einsum('...n,...nd->...d', coefficients, states)
+    if op == 'gram_spectrum':
+        return anp.linalg.eigvalsh(args[0])
+    if op == 'generator_spectrum':
+        return anp.linalg.eigvalsh(args[0])
+    if op == 'spectral_participation':
+        spectrum = args[0]
+        total = anp.sum(spectrum, axis=-1)
+        squared = anp.sum(anp.real(spectrum) ** 2, axis=-1)
+        if ordinary(squared) and float(anp.min(squared)) <= 0:
+            raise NumericalDomainError('spectral_participation: zero spectrum has no participation')
+        return total ** 2 / squared
+    if op == 'gram_coherence':
+        matrix = args[0]
+        energy = anp.sum(anp.real(anp.conj(matrix) * matrix), axis=(-2, -1))
+        diagonal = anp.diagonal(matrix, axis1=-2, axis2=-1)
+        diag_energy = anp.sum(anp.real(anp.conj(diagonal) * diagonal), axis=-1)
+        return anp.sqrt(anp.maximum(energy - diag_energy, 0))
+    if op == 'phase_ablate':
+        matrix = args[0]
+        diagonal = anp.diagonal(matrix, axis1=-2, axis2=-1)
+        return anp.eye(matrix.shape[-1]) * diagonal[..., :, None]
+    if op == 'matrix_exponential':
+        return _unitary_from_hermitian(args[0], args[1])
+    if op == 'time_ordered_evolve':
+        return _time_ordered(args[0], args[1])
+    if op == 'commutator':
+        return args[0] @ args[1] - args[1] @ args[0]
+    if op == 'frobenius_norm':
+        return anp.sqrt(anp.real(anp.sum(anp.conj(args[0]) * args[0], axis=(-2, -1))))
+    if op == 'detector_duality':
+        return _detector_duality(args[0], args[1])
+    if op == 'path_duality':
+        density = args[0]
+        if density.shape[-1] != 2:
+            raise ValueError('path_duality requires a qubit density matrix')
+        predictability = anp.abs(density[..., 0, 0] - density[..., 1, 1])
+        visibility = 2 * anp.abs(density[..., 0, 1])
+        return anp.stack((predictability, visibility), axis=-1)
+    if op == 'duality_slack':
+        pair = args[0]
+        return 1 - pair[..., 0] ** 2 - pair[..., 1] ** 2
+    if op == 'resolvent':
+        return _resolvent_kernel(args[0], args[1], policy, truncated=False)
+    if op == 'proper_time_resolvent':
+        return _resolvent_kernel(args[0], args[1], policy, truncated=True)
+    if op == 'source_response':
+        return anp.einsum('...de,...e->...d', args[0], args[1])
+    if op == 'generating_functional':
+        applied = anp.einsum('...de,...e->...d', args[0], args[1])
+        return 0.5 * anp.real(anp.sum(anp.conj(args[1]) * applied, axis=-1))
     raise UnsupportedLowering(op)
 
 
@@ -197,7 +303,8 @@ class OverlapBackend:
         for index, ins in enumerate(program.instructions):
             interventions = []
             value = inputs[ins.output] if ins.op == 'input' else execute_op(
-                ins, [env[x] for x in ins.inputs], self.pennylane, interventions)
+                ins, [env[x] for x in ins.inputs], self.pennylane, interventions,
+                semantics.numerical_policy)
             validate_value(value, types[ins.output], semantics.numerical_policy)
             env[ins.output] = value
             prepares = ins.op in ('encode_ry', 'encode_ryrz')
