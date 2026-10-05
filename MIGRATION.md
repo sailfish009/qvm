@@ -1,3 +1,37 @@
+# Migrating 0.0.5 → 0.0.6
+
+## Preserved
+
+- Distribution `qvm-counterfactual`, import `qvm`, `QVM.run(...)`, default backend and all legacy backend names.
+- Every program, `SemanticProfile` field, value type and numerical-policy field from 0.0.5. No new value types
+  are introduced: reduced states reuse `density`, Schmidt coefficients reuse `spectrum`, charge generators and
+  POVM effects reuse `hermitian`, Kraus operators reuse `operator`.
+- All 59 retained tests, including the schema round-trips, now resealing to `qvm_v0.0006`.
+
+## Changed
+
+1. New serializations use `qvm_v0.0006`; schemas v0.0002–v0.0005 load and reseal as v0.0006. Identity hashes
+   change across schema versions; keep original JSON/hashes as provenance.
+2. The opt-in overlap dialect adds the thirteen opcodes in `EQUATIONS.md` (layers V/VI/VII and the `effective_action`
+   completion of IV). They require standard semantics.
+3. Three opcodes carry required attributes: `dims` (tuple of positive ints, first factor retained),
+   `label` (Pauli string over `ixyz`) and `eigenvalue` (finite real).
+4. `tensor_product` and `kraus_apply` are batch-aware over leading axes; earlier v0.0006 development snapshots
+   used `kron`/`matmul` contractions that were wrong for batched inputs and a `partial_trace` contraction that
+   was mathematically incorrect even unbatched. Both are fixed and regression-tested before release.
+
+## Not promised
+
+The new layers are small standard-algebra primitives, not a claim of quantum advantage or a new counterfactual
+law. `partial_trace` retains the first factor only; `symmetry_generator` accepts Pauli strings only; `kraus_apply`
+does not validate Kraus completeness; `postselect` conditions on a single effect and rejects zero-probability
+branches. The interacting `Gamma` tower and the `iε` retarded branch remain out of scope.
+
+```bash
+python -m pip install -e .
+python -m unittest discover -s tests
+```
+
 # Migrating 0.0.4 → 0.0.5
 
 ## Preserved

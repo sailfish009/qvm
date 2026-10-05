@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.0.6
+
+Three more quantum-equation concept layers in the same opt-in typed dialect,
+plus the Gaussian completion of the source layer. Standard semantics are
+unchanged; no new counterfactual law and no superiority claim over attention.
+
+- V. entanglement (composition): `tensor_product`, `partial_trace`,
+  `schmidt_spectrum`, `entanglement_entropy`, `swap_test`;
+- VI. symmetry (preservation): `symmetry_generator`, `projector_to_irrep`,
+  `conserved_current`, `conservation_defect`;
+- VII. measurement (update): `kraus_apply`, `povm_probabilities`, `postselect`;
+- IV completion: `effective_action`, the exact Legendre partner of `W[J]`
+  (`Gamma(phi(J)) = W[J]` holds to machine precision in the free theory);
+- `partial_trace`, `schmidt_spectrum` and `entanglement_entropy` take a `dims`
+  attribute and retain the first factor; `symmetry_generator` takes a Pauli
+  `label` over `ixyz`; `projector_to_irrep` takes an `eigenvalue`;
+- `tensor_product` and `kraus_apply` are batch-aware over leading axes;
+- `postselect` raises `NumericalDomainError` on a zero-probability effect
+  instead of silently repairing the conditional state;
+- schema is now `qvm_v0.0006`; v2–v5 JSON imports are resealed into v6;
+- fixed the `partial_trace` contraction (it summed the traced factor's row and
+  column indices independently instead of contracting the diagonal) and made
+  `tensor_product`/`kraus_apply` batch-safe before any release;
+- added `tests/test_equations_v6.py` with closed-form classical lowerings for
+  every new opcode (88 tests total);
+- retained all v5 tests and behavior.
+
 ## 0.0.5
 
 Four quantum-equation concept layers in one opt-in typed dialect, plus a

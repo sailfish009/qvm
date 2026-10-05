@@ -1,8 +1,9 @@
-# Quantum-Equation Layers (v0.0.5)
+# Quantum-Equation Layers (v0.0.6)
 
-Four equations from quantum mechanics, each contributing a distinct *role* to a
-learning pipeline. The layers are not four competing score functions; they are
-observable → dynamics → constraint → response on one tape.
+Seven equations from quantum mechanics, each contributing a distinct *role* to a
+learning pipeline. The layers are not competing score functions; they are
+observable → dynamics → constraint → response → composition → preservation →
+update, each usable on one tape without forcing a composite pipeline.
 
 Each opcode below carries: its contract, the equation it realizes, the invariant
 it exposes, and an exact classical lowering used as a derived control (a
@@ -82,6 +83,7 @@ VM; the full functional-derivative tower is a documented boundary.
 | `proper_time_resolvent` | hermitian, real → operator | `(1 - e^{-(E-omega) L}) / (E-omega)` per eigenvalue |
 | `source_response` | operator, amplitude → amplitude | `phi = G J` |
 | `generating_functional` | operator, amplitude → real | `W[J] = 1/2 Re <J|G|J>` |
+| `effective_action` | operator, amplitude → real | `Gamma = 1/2 Re <phi|G^-1|phi>` |
 
 Invariant / meaning: `proper_time_resolvent` is the finite-cutoff value of
 `(H-omega)^{-1} = ∫_0^inf ds e^{-(H-omega)s}`; its truncation error is bounded by
@@ -91,12 +93,102 @@ The gradient of `W[J]` reproduces the response `G J` exactly.
 Classical lowering: the resolvent is checked by `(H - omega) G = I`; the
 generating functional by the closed-form quadratic form.
 
+Invariant / meaning (0.0.6 completion): `effective_action` is the Legendre
+response of the free theory. For `phi(J) = G J` the identity
+`Gamma(phi(J)) = W[J]` holds exactly, because
+`1/2 <GJ|G^-1|GJ> = 1/2 <J|G|J>`. Still only the Gaussian sector: no
+interacting `Gamma` tower, no `iε` retarded branch.
+
+Classical lowering: `effective_action` is checked against an independent
+`linalg.solve` of the kernel.
+
+## V. Entanglement — the composition
+
+Composition content = how parts combine into a whole and what the whole
+forgets when a part is discarded. The Schmidt spectrum and the entanglement
+entropy quantify exactly that; the swap test is the overlap of two parts.
+
+| opcode | contract | equation |
+|---|---|---|
+| `tensor_product` | vectors, vectors → ket | `psi_A ⊗ psi_B` (batch-aware outer product) |
+| `partial_trace` | density → density | `Tr_B rho_AB`; requires `dims`, retains the first factor |
+| `schmidt_spectrum` | density → spectrum | `sqrt(eig(Tr_B rho))`, the Schmidt coefficients |
+| `entanglement_entropy` | density → real | `-Tr lambda log2 lambda` of the reduced spectrum |
+| `swap_test` | vectors, vectors → real | `|<a|b>|^2` |
+
+Invariant / meaning: `partial_trace` preserves the trace; for a pure whole the
+Schmidt coefficients squared sum to one; the entropy is 0 for product states
+and `log2(d)` for maximally entangled pairs. `partial_trace` retains only the
+first factor of `dims` (tracing out everything else); arbitrary subsystem
+selection is a documented boundary.
+
+Classical lowering: compared against explicit `kron`, an index-wise partial
+trace, `linalg.svd` of the reshaped coefficient matrix, and the closed-form
+squared overlap.
+
+## VI. Symmetry — the preservation
+
+Preservation content = what a generator cannot change. A symmetry generator
+commutes with the dynamics; its irreducible eigenspaces are what the evolution
+preserves, and the conservation defect measures commutativity.
+
+| opcode | contract | equation |
+|---|---|---|
+| `symmetry_generator` | (none) → hermitian | Pauli string from required `label` over `ixyz` |
+| `projector_to_irrep` | hermitian → hermitian | spectral projector onto eigenspace `eigenvalue` |
+| `conserved_current` | ket, hermitian → real | `Re <psi|Q|psi>`, the conserved charge expectation |
+| `conservation_defect` | hermitian, hermitian → real | `|[A, B]|_F` (zero iff commuting) |
+
+Invariant / meaning: Pauli-string generators have spectrum `±1` exactly;
+`projector_to_irrep` is idempotent and Hermitian, and the projectors over the
+distinct eigenvalues resolve the identity. `conservation_defect` agrees
+exactly with layer II's `commutator` + `frobenius_norm` (cross-layer
+consistency, not a new law). Only Pauli-string labels over qubit wires are
+supported; general group representations are a boundary.
+
+Classical lowering: compared against `kron` Pauli products, `eigvalsh`
+eigenprojectors, the closed-form expectation, and the Frobenius norm of the
+explicit commutator.
+
+## VII. Measurement — the update
+
+Update content = what an observation does to the state. A Kraus instrument is
+the general state update; a POVM is what it can see; postselection is the
+conditioned branch (the counterfactual axis the VM is named after, now exposed
+as standard algebra rather than a semantic law).
+
+| opcode | contract | equation |
+|---|---|---|
+| `kraus_apply` | density, operator → density | `sum_k K_k rho K_k^dag` (batch-aware over the state) |
+| `povm_probabilities` | density, hermitian → real | `Tr(rho E_k)` per effect |
+| `postselect` | density, hermitian → density | `E rho E / Tr(rho E)` (Lüders update) |
+
+Invariant / meaning: for a trace-preserving Kraus set the update keeps the
+trace at one; a complete POVM sums to one; `postselect` returns a valid
+density matrix and raises `NumericalDomainError` on a zero-probability effect
+(undefined conditional state, never silently repaired). Kraus completeness is
+*not* validated as an input contract: an incomplete set returns a trace below
+one and that is the caller's declared model, not a VM repair.
+
+Classical lowering: compared against explicit `sum_k K rho K^dag`, the
+closed-form Born probabilities, and the hand-computed conditioned eigenstate.
+
 ## Coverage boundaries (kept explicit)
 
 - No `iε` retarded branch is implemented; the resolvent requires a positive
   shift (`E_min > omega`).
 - No functional derivatives / higher correlators: `generating_functional` is the
-  free Gaussian `W[J]` only.
+  free Gaussian `W[J]` only; `effective_action` is its exact Legendre partner,
+  still Gaussian. No interacting tower.
 - Duality is a probed invariant, not a new `SemanticProfile` axis.
+- `partial_trace` retains the first factor only; no arbitrary subsystem
+  selection, no `partial_transpose`, no negative-eigenvalue entanglement
+  witnesses.
+- `symmetry_generator` accepts Pauli strings over `ixyz` only; no general
+  group labels, irreducible-character tables, or Noether currents on
+  continuous configuration spaces.
+- `kraus_apply` performs the algebraic channel but does not validate Kraus
+  completeness; `postselect` conditions on a single effect, not a general
+  instrument with classical registers.
 - The PennyLane backend shares the same host algebra for post-encoding opcodes;
   it independently prepares states, not every downstream op.

@@ -1,11 +1,12 @@
-# QVM 0.0.5 — quantum-equation layers without an attention requirement
+# QVM 0.0.6 — quantum-equation layers without an attention requirement
 
 **Small, auditable quantum-equation programs for NumPy and PennyLane.**
 
 QVM is execution infrastructure, not a proposed physical theory, a model architecture, or a quantum-advantage claim.
-Version 0.0.5 adds four composable **quantum-equation concept layers** on one tape — overlap (observable),
-Schrodinger (dynamics), duality (constraint) and Schwinger (response) — with no Q/K/V, softmax, or Transformer.
-Earlier counterfactual-semantics and overlap examples remain available, but are not a gate for learning research.
+Version 0.0.6 adds three more composable **quantum-equation concept layers** to the 0.0.5 tape — entanglement
+(composition), symmetry (preservation) and measurement (update) — and completes the free Schwinger response with
+its exact Legendre partner, with no Q/K/V, softmax, or Transformer. Earlier counterfactual-semantics and overlap
+examples remain available, but are not a gate for learning research.
 
 ```text
 QVM.run(program, inputs, semantics, backend)
@@ -16,21 +17,29 @@ Rigetti's QVM and does not execute Quil.
 
 ## What's new
 
-- Four equation layers sharing one opt-in typed dialect; see `EQUATIONS.md` for contracts, math and invariants:
+- Seven equation layers sharing one opt-in typed dialect; see `EQUATIONS.md` for contracts, math and invariants:
   - I. overlap: `gram_spectrum`, `spectral_participation`, `gram_coherence`, `phase_ablate`.
   - II. Schrodinger: `generator_spectrum`, `matrix_exponential`, `time_ordered_evolve`, `commutator`, `frobenius_norm`.
   - III. duality: `detector_duality`, `path_duality`, `duality_slack` (the `D^2 + V^2 <= 1` invariant).
-  - IV. Schwinger: `resolvent`, `proper_time_resolvent`, `source_response`, `generating_functional`.
-- Added the `spectrum` value type; generators reuse `hermitian`, sources reuse `amplitude`, Green functions reuse `operator`.
-- Explicit result types, independent of instruction roles: ket, amplitude, state collection, density, Gram,
-  operator, Hermitian operator, unitary, complex, real, angles, coefficients, and spectrum.
-- Fixed returning a valid pure state: it is no longer incorrectly validated as a square density matrix.
+  - IV. Schwinger: `resolvent`, `proper_time_resolvent`, `source_response`, `generating_functional`,
+    `effective_action` (the exact Legendre partner `Gamma(phi(J)) = W[J]`).
+  - V. entanglement: `tensor_product`, `partial_trace`, `schmidt_spectrum`, `entanglement_entropy`, `swap_test`.
+  - VI. symmetry: `symmetry_generator`, `projector_to_irrep`, `conserved_current`, `conservation_defect`.
+  - VII. measurement: `kraus_apply`, `povm_probabilities`, `postselect` (Lüders update, zero-probability branches
+    raise instead of being repaired).
+- No new value types: reduced states reuse `density`, Schmidt coefficients reuse `spectrum`, charge generators and
+  POVM effects reuse `hermitian`, Kraus operators reuse `operator`.
+- `tensor_product` and `kraus_apply` are batch-aware over leading axes.
+- Added the `spectrum` value type in 0.0.5; explicit result types, independent of instruction roles: ket, amplitude,
+  state collection, density, Gram, operator, Hermitian operator, unitary, complex, real, angles, coefficients, and
+  spectrum.
+- Fixed returning a valid pure state: it is no longer incorrectly validated as a square density matrix (0.0.4).
 - Batched real/complex state encoders, complex overlaps, Gram matrices, cyclic overlap products, linear
   superpositions, explicit normalization, pure-state evolution, density conversion, and expectation readout.
 - Explicitly regularized span projection with a reported ridge, not a disguised exact projector.
 - Differentiable `numpy_overlap` and `pennylane_overlap` backends for a documented instruction subset.
 - An attention-free overlap-metric training example, with PennyLane QNodes in the actual gradient path.
-- Old standard-equation and reliability regressions retained; old program JSON accepted.
+- Old standard-equation and reliability regressions retained; old program JSON accepted (v2–v5 reseal as v6).
 
 ## Install
 
@@ -42,7 +51,7 @@ python -m pip install -e .
 python -c "import qvm; print(qvm.__version__)"
 ```
 
-Distribution: `qvm-counterfactual`; import: `qvm`; version: `0.0.5`. Use a virtual environment if another package
+Distribution: `qvm-counterfactual`; import: `qvm`; version: `0.0.6`. Use a virtual environment if another package
 uses the generic `qvm` namespace. A release wheel can be installed instead of the editable source.
 
 ## Raw complex overlap, not necessarily fidelity

@@ -227,7 +227,7 @@ class SchemaTests(unittest.TestCase):
         for program in (overlap_spectrum(), generator_evolution(), detector_duality_program(),
                         resolvent_program(truncated=True), generating_functional_program()):
             restored = Program.from_json(program.to_json())
-            self.assertEqual(restored.record()['schema'], 'qvm_v0.0005')
+            self.assertEqual(restored.record()['schema'], 'qvm_v0.0006')
             self.assertEqual(restored.sha256, program.sha256)
             self.assertTrue(restored.sealed)
 

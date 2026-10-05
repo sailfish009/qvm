@@ -1,8 +1,9 @@
-# Overlap dialect (0.0.5)
+# Overlap dialect (0.0.6)
 
 Select `backend="numpy_overlap"` or `backend="pennylane_overlap"` explicitly. The default backend remains
-`numpy_semantic` for legacy compatibility. New opcodes are not silently inserted into old executors. The four
-equation layers (I overlap, II Schrodinger, III duality, IV Schwinger) are documented in `EQUATIONS.md`.
+`numpy_semantic` for legacy compatibility. New opcodes are not silently inserted into old executors. The seven
+equation layers (I overlap, II Schrodinger, III duality, IV Schwinger, V entanglement, VI symmetry, VII measurement)
+are documented in `EQUATIONS.md`.
 
 ## Value types and layout
 
@@ -58,10 +59,11 @@ axes and equal D. To get all pairs use `gram_matrix` for one collection, or expl
 two collections. Automatic query/key roles are deliberately absent.
 
 `operator` is a validation type, not a license for an arbitrary nonunitary physical evolution. Only the opcodes
-listed above are supported. Gates, tensor products of arbitrary states, mixed-state overlap, scans, general
-projector construction, and pseudoinverses are not part of the new dialect yet. Some density/tensor operations
-exist separately in the legacy executor. Add operations in response to concrete experiments, not as an assumed
-model architecture.
+listed above and the equation-layer opcodes in `EQUATIONS.md` are supported. `tensor_product` composes two pure
+state vectors, `kraus_apply` applies a declared operator set, and `postselect` conditions on one effect; these are
+algebraic contracts, not arbitrary program gates. Scans, general projector construction, arbitrary subsystem
+partial traces, and pseudoinverses are not part of the dialect. Some density/tensor operations exist separately in
+the legacy executor. Add operations in response to concrete experiments, not as an assumed model architecture.
 
 ## Regularized projection and singularity
 

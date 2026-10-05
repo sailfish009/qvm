@@ -8,7 +8,7 @@ from functools import lru_cache
 import numpy as np
 import pennylane as qml
 from pennylane import numpy as anp
-from ..numerics import NumericalDomainError, ordinary
+from ..numerics import NumericalDomainError, ordinary, scalar_value
 from ..value_types import VALUE_TYPES, primal, validate_value
 from .pennylane_standard import UnsupportedLowering
 
@@ -49,6 +49,22 @@ SPEC = {
     'proper_time_resolvent': (('hermitian', 'real'), 'operator', frozenset()),
     'source_response': ((OPERATORS, 'amplitude'), 'amplitude', frozenset()),
     'generating_functional': ((OPERATORS, 'amplitude'), 'real', frozenset()),
+    'effective_action': (('operator', 'amplitude'), 'real', frozenset()),
+    # V. entanglement: how parts compose into a whole
+    'tensor_product': ((VECTORS, VECTORS), 'ket', frozenset()),
+    'partial_trace': (('density',), 'density', frozenset({'dims'})),
+    'schmidt_spectrum': (('density',), 'spectrum', frozenset({'dims'})),
+    'entanglement_entropy': (('density',), 'real', frozenset({'dims'})),
+    'swap_test': ((VECTORS, VECTORS), 'real', frozenset()),
+    # VI. symmetry: what a generator preserves
+    'symmetry_generator': ((), 'hermitian', frozenset({'label'})),
+    'projector_to_irrep': (('hermitian',), 'hermitian', frozenset({'eigenvalue'})),
+    'conserved_current': (('ket', 'hermitian'), 'real', frozenset()),
+    'conservation_defect': (('hermitian', 'hermitian'), 'real', frozenset()),
+    # VII. measurement: what an observation does to the state
+    'kraus_apply': (('density', 'operator'), 'density', frozenset()),
+    'povm_probabilities': (('density', 'hermitian'), 'real', frozenset()),
+    'postselect': (('density', 'hermitian'), 'density', frozenset()),
 }
 
 
@@ -80,6 +96,20 @@ def check_tape(program):
                 ridge = ins.attrs['ridge']
                 if type(ridge) not in (int, float) or not np.isfinite(ridge) or ridge <= 0:
                     raise UnsupportedLowering('ridge_project requires an explicit finite ridge > 0')
+            if ins.op in ('partial_trace', 'schmidt_spectrum', 'entanglement_entropy'):
+                dims = ins.attrs['dims']
+                if (not isinstance(dims, tuple) or len(dims) < 2
+                        or any(type(d) is not int or d < 1 for d in dims)):
+                    raise UnsupportedLowering(
+                        f'{ins.op} requires dims as a tuple of at least two positive ints')
+            if ins.op == 'symmetry_generator':
+                label = ins.attrs['label']
+                if not isinstance(label, str) or not label or any(c not in 'ixyz' for c in label):
+                    raise UnsupportedLowering('symmetry_generator requires a Pauli label over ixyz')
+            if ins.op == 'projector_to_irrep':
+                eigenvalue = ins.attrs['eigenvalue']
+                if type(eigenvalue) not in (int, float) or not np.isfinite(eigenvalue):
+                    raise UnsupportedLowering('projector_to_irrep requires a finite eigenvalue')
         if ins.result_type is not None and ins.result_type != kind:
             raise UnsupportedLowering(f'{ins.op}: result_type disagrees with operator contract')
         types[ins.output] = kind
@@ -184,6 +214,85 @@ def _detector_duality(left, right):
     return anp.stack((distinguishability, visibility), axis=-1)
 
 
+_PAULI = {
+    'i': anp.eye(2, dtype=complex),
+    'x': anp.array([[0, 1], [1, 0]], dtype=complex),
+    'y': anp.array([[0, -1j], [1j, 0]], dtype=complex),
+    'z': anp.array([[1, 0], [0, -1]], dtype=complex),
+}
+
+
+def _tensor_product(left, right):
+    # Batch-aware outer product: (..., da), (..., db) -> (..., da*db).
+    outer = anp.einsum('...i,...j->...ij', left, right)
+    return anp.reshape(outer, outer.shape[:-2] + (outer.shape[-2] * outer.shape[-1],))
+
+
+def _kraus_apply(rho, kraus):
+    # kraus: (K, D, D); rho: (..., D, D). Returns sum_k K_k rho K_k^dag.
+    intermediate = anp.einsum('kde,...ef->...kdf', kraus, rho)
+    adjoint = anp.conj(anp.swapaxes(kraus, -1, -2))
+    transformed = anp.einsum('...kdf,kfg->...kdg', intermediate, adjoint)
+    return anp.sum(transformed, axis=-3)
+
+
+def _partial_trace(rho, dims):
+    """Retain the first factor of dims and trace out the remaining factors."""
+    total = 1
+    for dim in dims:
+        total *= int(dim)
+    if rho.shape[-1] != total:
+        raise ValueError('partial_trace: dims do not match the matrix dimension')
+    batch = rho.shape[:-2]
+    first, rest = int(dims[0]), total // int(dims[0])
+    tensor = anp.reshape(rho, batch + (first, rest, first, rest))
+    # Diagonal contraction over the traced factor: sum_j rho[(a,j),(c,j)].
+    return anp.einsum('...abcb->...ac', tensor)
+
+
+def _reduced_eigenvalues(rho, dims):
+    reduced = _partial_trace(rho, dims)
+    values = anp.linalg.eigvalsh(reduced)
+    return anp.maximum(values, 0)
+
+
+def _schmidt_spectrum(rho, dims):
+    return anp.sqrt(_reduced_eigenvalues(rho, dims))
+
+
+def _entanglement_entropy(rho, dims):
+    values = _reduced_eigenvalues(rho, dims)
+    total = anp.sum(values, axis=-1, keepdims=True)
+    normalized = values / total
+    safe = anp.where(normalized > 0, normalized, 1.0)
+    return -anp.sum(anp.where(normalized > 0, normalized * anp.log2(safe), 0), axis=-1)
+
+
+def _symmetry_generator(label):
+    generator = anp.array([[1.0 + 0j]])
+    for char in label:
+        generator = anp.kron(generator, _PAULI[char])
+    return generator
+
+
+def _projector_to_irrep(operator, eigenvalue, policy):
+    values, vectors = anp.linalg.eigh(operator)
+    tolerance = max(policy.hermitian_roundoff_tolerance, 1e-9)
+    mask = anp.abs(values - eigenvalue) <= tolerance
+    selected = vectors * mask[..., None, :]
+    return selected @ anp.conj(vectors.swapaxes(-1, -2))
+
+
+def _conservation_defect(left, right):
+    commutator = left @ right - right @ left
+    return anp.sqrt(anp.real(anp.sum(anp.conj(commutator) * commutator, axis=(-2, -1))))
+
+
+def _effective_action(kernel, mean_field):
+    solved = anp.linalg.solve(kernel, mean_field[..., None])[..., 0]
+    return 0.5 * anp.real(anp.sum(anp.conj(mean_field) * solved, axis=-1))
+
+
 def execute_op(ins, args, pennylane, interventions, policy):
     op = ins.op
     if op in ('encode_ry', 'encode_ryrz'):
@@ -286,6 +395,38 @@ def execute_op(ins, args, pennylane, interventions, policy):
     if op == 'generating_functional':
         applied = anp.einsum('...de,...e->...d', args[0], args[1])
         return 0.5 * anp.real(anp.sum(anp.conj(args[1]) * applied, axis=-1))
+    if op == 'effective_action':
+        return _effective_action(args[0], args[1])
+    if op == 'tensor_product':
+        return _tensor_product(args[0], args[1])
+    if op == 'partial_trace':
+        return _partial_trace(args[0], ins.attrs['dims'])
+    if op == 'schmidt_spectrum':
+        return _schmidt_spectrum(args[0], ins.attrs['dims'])
+    if op == 'entanglement_entropy':
+        return _entanglement_entropy(args[0], ins.attrs['dims'])
+    if op == 'swap_test':
+        return anp.abs(anp.sum(anp.conj(args[0]) * args[1], axis=-1)) ** 2
+    if op == 'symmetry_generator':
+        return _symmetry_generator(ins.attrs['label'])
+    if op == 'projector_to_irrep':
+        return _projector_to_irrep(args[0], ins.attrs['eigenvalue'], policy)
+    if op == 'conserved_current':
+        applied = anp.einsum('...de,...e->...d', args[1], args[0])
+        return anp.real(anp.sum(anp.conj(args[0]) * applied, axis=-1))
+    if op == 'conservation_defect':
+        return _conservation_defect(args[0], args[1])
+    if op == 'kraus_apply':
+        return _kraus_apply(args[0], args[1])
+    if op == 'povm_probabilities':
+        return anp.real(anp.einsum('...ab,...ba->...', args[0], args[1]))
+    if op == 'postselect':
+        rho, effect = args
+        probability = anp.real(anp.einsum('...ab,...ba->...', rho, effect))
+        if ordinary(probability) and scalar_value(probability) <= policy.probability_roundoff_tolerance:
+            raise NumericalDomainError('postselect: zero-probability effect has no conditional state')
+        collapsed = effect @ rho @ anp.conj(effect.swapaxes(-1, -2))
+        return collapsed / probability
     raise UnsupportedLowering(op)
 
 

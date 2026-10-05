@@ -170,3 +170,111 @@ def generating_functional_program():
     p.input('source', 'amplitude')
     p.emit('action', 'generating_functional', 'propagator', 'source', result_type='real')
     return p.returns('action')
+
+
+def effective_action_program():
+    """Legendre response Gamma = 1/2 Re <phi|G^-1|phi>, the 0.0.6 completion of layer IV."""
+    p = Program('effective_action')
+    p.input('kernel', 'operator')
+    p.input('mean_field', 'amplitude')
+    p.emit('action', 'effective_action', 'kernel', 'mean_field', result_type='real')
+    return p.returns('action')
+
+
+# ---- V. entanglement: how parts compose into a whole ------------------------
+
+def tensor_product_program():
+    p = Program('tensor_product')
+    p.input('left', 'ket')
+    p.input('right', 'ket')
+    p.emit('joint', 'tensor_product', 'left', 'right', role='state', result_type='ket')
+    return p.returns('joint')
+
+
+def partial_trace_program(dims):
+    p = Program('partial_trace')
+    p.input('state', 'density')
+    p.emit('reduced', 'partial_trace', 'state', dims=tuple(dims), result_type='density')
+    return p.returns('reduced')
+
+
+def schmidt_spectrum_program(dims):
+    p = Program('schmidt_spectrum')
+    p.input('state', 'density')
+    p.emit('coefficients', 'schmidt_spectrum', 'state', dims=tuple(dims),
+           result_type='spectrum')
+    return p.returns('coefficients')
+
+
+def entanglement_entropy_program(dims):
+    p = Program('entanglement_entropy')
+    p.input('state', 'density')
+    p.emit('entropy', 'entanglement_entropy', 'state', dims=tuple(dims), result_type='real')
+    return p.returns('entropy')
+
+
+def swap_test_program():
+    p = Program('swap_test')
+    p.input('left', 'ket')
+    p.input('right', 'ket')
+    p.emit('fidelity', 'swap_test', 'left', 'right', result_type='real')
+    return p.returns('fidelity')
+
+
+# ---- VI. symmetry: what a generator preserves -------------------------------
+
+def symmetry_generator_program(label):
+    p = Program('symmetry_generator')
+    p.emit('generator', 'symmetry_generator', label=str(label),
+           result_type='hermitian')
+    return p.returns('generator')
+
+
+def irrep_projector_program(eigenvalue):
+    p = Program('irrep_projector')
+    p.input('generator', 'hermitian')
+    p.emit('projector', 'projector_to_irrep', 'generator', eigenvalue=float(eigenvalue),
+           result_type='hermitian')
+    return p.returns('projector')
+
+
+def conserved_current_program():
+    p = Program('conserved_current')
+    p.input('state', 'ket')
+    p.input('charge', 'hermitian')
+    p.emit('current', 'conserved_current', 'state', 'charge', result_type='real')
+    return p.returns('current')
+
+
+def conservation_defect_program():
+    p = Program('conservation_defect')
+    p.input('left', 'hermitian')
+    p.input('right', 'hermitian')
+    p.emit('defect', 'conservation_defect', 'left', 'right', result_type='real')
+    return p.returns('defect')
+
+
+# ---- VII. measurement: what an observation does to the state ----------------
+
+def instrument_channel_program():
+    p = Program('instrument_channel')
+    p.input('state', 'density')
+    p.input('kraus', 'operator')
+    p.emit('updated', 'kraus_apply', 'state', 'kraus', result_type='density')
+    return p.returns('updated')
+
+
+def povm_probability_program():
+    p = Program('povm_probability')
+    p.input('state', 'density')
+    p.input('effects', 'hermitian')
+    p.emit('probabilities', 'povm_probabilities', 'state', 'effects', result_type='real')
+    return p.returns('probabilities')
+
+
+def postselect_program():
+    p = Program('postselect')
+    p.input('state', 'density')
+    p.input('effect', 'hermitian')
+    p.emit('collapsed', 'postselect', 'state', 'effect', result_type='density')
+    return p.returns('collapsed')

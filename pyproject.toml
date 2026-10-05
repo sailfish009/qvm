@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "qvm-counterfactual"
-version = "0.0.5"
-description = "Auditable quantum-equation execution: overlap, Schrodinger, duality and source layers"
+version = "0.0.6"
+description = "Auditable quantum-equation execution: overlap, Schrodinger, duality, source, entanglement, symmetry and measurement layers"
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "Apache-2.0"}

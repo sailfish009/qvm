@@ -48,7 +48,7 @@ class ReliabilityTests(unittest.TestCase):
   report=default_property_report(self.vm);found={(x['profile'],x['property']) for x in report['counterexamples']};self.assertIn(('escort_born_4','measurement_outcome_refinement'),found);self.assertIn(('partial_collapse_0.5','selective_measurement_repeatability'),found);self.assertIn(('spectral_power_2','identity_evolution_decomposition'),found);self.assertIn(('spectral_power_2','convex_mixture_affinity'),found);self.assertFalse(any(x['profile']=='standard_quantum' for x in report['counterexamples']))
  def test_old_json_is_imported_then_resealed_as_current(self):
   for schema in ('qvm_v0.0002','qvm_v0.0003','qvm_v0.0004'):
-   text=unitary_evolution().to_json().replace('qvm_v0.0005',schema);p=Program.from_json(text);self.assertEqual(p.record()['schema'],'qvm_v0.0005');self.assertTrue(p.sealed)
+   text=unitary_evolution().to_json().replace('qvm_v0.0006',schema);p=Program.from_json(text);self.assertEqual(p.record()['schema'],'qvm_v0.0006');self.assertTrue(p.sealed)
  def test_trainable_spectral_gradient_on_full_rank_state(self):
   p=unitary_evolution();r=np.array([.2,-.1,.4])
   def loss(beta):return anp.real(self.vm.run(p,{'r':r,'unitary':I},spectral_power_profile(beta))[0,0])

@@ -5,7 +5,7 @@
 A backend answers an immutable program under a semantic profile. It does not define that profile. Agreement across
 software backends tests implementation consistency under shared assumptions, not the truth of those assumptions.
 
-## Typed overlap extension (0.0.4), extended by the equation layers (0.0.5)
+## Typed overlap extension (0.0.4), extended by the equation layers (0.0.5, 0.0.6)
 
 The new overlap dialect supports standard complex Hilbert algebra without an attention/QKV architecture. A ket is
 another representation of a pure density state; amplitudes, Gram matrices, coefficients and operators are distinct
@@ -16,6 +16,14 @@ physical law. The overlap backends reject counterfactual profiles rather than ig
 requires and audits a positive ridge; its output is a regularized span smoother, not an exact projector or gate.
 Raw overlap phases depend on preparation conventions; cyclic products and fidelities have different invariances.
 Arbitrary coherent-sum norms are not physical success probabilities. See `OVERLAP_API.md`.
+
+The 0.0.6 layers are algebraic contracts, not physical claims. `partial_trace` retains the first declared factor
+and what it returns is a mathematical reduced state, not a claim about spatial subsystems. Entanglement entropy is
+a property of the declared `dims` factorization, not an observable-independent number. `symmetry_generator` Pauli
+strings are a finite label set, not a representation-theory engine. `kraus_apply` does not validate Kraus
+completeness: a subnormalized output is the caller's declared model, not a VM repair. `postselect` conditions on a
+single effect and rejects zero-probability branches as undefined, consistent with the counterfactual discipline of
+never silently repairing an undefined conditional state.
 
 ## Standard profile
 

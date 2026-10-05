@@ -12,8 +12,8 @@ import math
 
 from .value_types import VALUE_TYPES
 
-SCHEMA = 'qvm_v0.0005'
-KNOWN_SCHEMAS = ('qvm_v0.0002', 'qvm_v0.0003', 'qvm_v0.0004', SCHEMA)
+SCHEMA = 'qvm_v0.0006'
+KNOWN_SCHEMAS = ('qvm_v0.0002', 'qvm_v0.0003', 'qvm_v0.0004', 'qvm_v0.0005', SCHEMA)
 ROLES = ('data', 'state', 'composition', 'evolution', 'measurement', 'host_math', 'output')
 
 

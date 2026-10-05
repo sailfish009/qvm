@@ -1,3 +1,56 @@
+# 0.0.6 local verification results
+
+## Scope
+
+This release adds three quantum-equation concept layers (entanglement, symmetry, measurement) to the 0.0.5 tape
+and completes the free Schwinger response with `effective_action`. Standard semantics are unchanged. It is an
+infrastructure release, not a comparative learning experiment and not a claim of quantum advantage.
+
+Validated locally with Python 3.14, NumPy 2.4.6 and PennyLane 0.45.1. The hosted CI matrix must still be run after upload.
+
+## Tests and equation checks
+
+- **88 unit tests passed**: 59 retained 0.0.5 regressions and 29 new layer regressions.
+- Every new opcode is checked against an independent closed-form reference (its exact classical lowering).
+- `partial_trace` preserves the trace; the Bell pair reduces to `I/2`; product states stay pure; dimension
+  mismatches raise.
+- Schmidt coefficients match `linalg.svd` of the reshaped coefficient matrix and their squares sum to one.
+- Entanglement entropy extremes: 0 for product states, 1 for the Bell pair.
+- `tensor_product` matches `kron` row-wise for batched inputs (a batch-unsafe `kron` lowering was found and
+  replaced before release).
+- `symmetry_generator` Pauli strings have spectrum exactly `±1`; irrep projectors are idempotent, Hermitian and
+  resolve the identity over the distinct eigenvalues.
+- `conservation_defect` agrees with layer II's `commutator` + `frobenius_norm` to machine precision.
+- A trace-preserving Kraus set keeps the trace at one; a complete POVM sums to one; `postselect` reproduces the
+  hand-computed conditioned eigenstate and rejects zero-probability effects.
+- The Legendre identity `Gamma(phi(J)) = W[J]` holds for the free resolvent theory.
+- The `swap_test` gradient flows through amplitude inputs and matches the closed-form derivative.
+
+Reference checks (max over random batches):
+
+| Check | Maximum error |
+|---|---:|
+| `partial_trace` of the Bell pair vs `I/2` | 1.1e-16 |
+| `schmidt_spectrum` vs `linalg.svd` | 1.1e-16 |
+| `tensor_product` vs `kron` (batched) | 0 |
+| `swap_test` vs squared overlap | 0 |
+| `symmetry_generator` vs `kron` Pauli product | 0 |
+| irrep projectors vs eigenprojectors and idempotence | 1.1e-16 |
+| `conservation_defect` vs `commutator` strength | 0 |
+| `kraus_apply` vs explicit `sum_k K rho K^dag` | 1.1e-16 |
+| `povm_probabilities` vs closed-form Born rule | 0 |
+| `postselect` vs conditioned eigenstate | 1.1e-16 |
+| `effective_action` vs `linalg.solve` | 2.2e-16 |
+| Legendre identity `Gamma(phi(J)) = W[J]` | 1.1e-16 |
+
+## Remaining limitations
+
+- `partial_trace` retains the first factor of `dims` only; no `partial_transpose` witnesses.
+- `symmetry_generator` accepts Pauli strings over `ixyz` only; no general representation theory.
+- `kraus_apply` does not validate Kraus completeness; an incomplete set is the caller's declared model.
+- `effective_action` is the Gaussian Legendre partner only; no interacting tower, no `iε` retarded branch.
+- No finite-shot, hardware, speedup or physical-law claim follows from simulator state access.
+
 # 0.0.5 local verification results
 
 ## Scope
